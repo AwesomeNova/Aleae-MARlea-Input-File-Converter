@@ -3,8 +3,6 @@ import sys
 import csv
 from enum import Enum
 
-print(sys.argv[1:])
-
 
 class Flags(Enum):
     A_TO_M = "--a_to_m"
@@ -13,6 +11,9 @@ class Flags(Enum):
 
 
 def process_flag(flag):
+    """ The function parses a flag given as input and return an enum representation of the input flag if successful or
+    the return value of alt_flag() if a ValueError exception was thrown"""
+
     try:
         return Flags(flag)
     except ValueError:
@@ -20,6 +21,8 @@ def process_flag(flag):
 
 
 def alt_flag(flag):
+    """The function parses a flag that has thrown a ValueError exception in process_flag(). It return the enum if the
+    flag is matched successfully and None otherwise."""
     match flag:
         case "-a":
             return Flags("--a_to_m")
@@ -28,10 +31,11 @@ def alt_flag(flag):
         case "-o":
             return Flags("--output")
         case _:
-            return False
+            return None
 
 
 def is_valid_flag(flag):
+    """The function checks if a flag is valid."""
     match flag:
         case "--a_to_m" | "--m_to_a" | "--output":
             return True
@@ -41,7 +45,8 @@ def is_valid_flag(flag):
             return False
 
 
-def open_aleae_file(str_file):
+def open_aleae_file_read(str_file):
+    """The function attempts to open an Aleae input file for reacing."""
     try:
         return open(str_file, "r", newline='')
     except OSError:
@@ -50,6 +55,7 @@ def open_aleae_file(str_file):
 
 
 def open_aleae_file_write(str_file):
+    """The function attempts to open an Aleae input file for writing."""
     if os.path.isfile(str_file):
         try:
             return open(str_file, "w", newline='')
@@ -65,6 +71,7 @@ def open_aleae_file_write(str_file):
 
 
 def open_marlea_file(str_file, mode):
+    """The function attempts to open an MARlea input file for reading or writing."""
     try:
         return open(str_file, mode, newline='')
     except OSError:
@@ -76,10 +83,18 @@ def remove_empty_str_elems(lst):
     return [i for i in lst if i != ""]
 
 
-def write_to_marcea_out(aleae_in_str, aleae_r_str, MARlea_output_str, waste, aether):
+def convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, MARlea_output_filename, waste, aether):
+    """
+    The function converts Aleae .in and .r files into one MARlea file.
+    :param aleae_in_filename: name of Aleae .in file
+    :param aleae_r_filename: name of Aleae .r file
+    :param MARlea_output_filename: name of MARlea file
+    :param waste: a specified chemical that will be converted to a NULL in the products
+    :param aether: list of chemicals that will be converted to a NULL in the reactants
+    """
     MARlea_output_lst = []
 
-    f_init = open_aleae_file(aleae_in_str)
+    f_init = open_aleae_file_read(aleae_in_filename)
     if f_init is None:
         return
     temp = f_init.readline()
@@ -91,51 +106,49 @@ def write_to_marcea_out(aleae_in_str, aleae_r_str, MARlea_output_str, waste, aet
     f_init.close()
     MARlea_output_lst.append([])
 
-    f_react = open_aleae_file(aleae_r_str)
+    f_react = open_aleae_file_read(aleae_r_filename)
     if f_react is None:
         return
     temp = f_react.readline()
 
     while temp != "":
-        temp_out = []
+        converted_reaction = []
         temp_row = temp.split(":")
 
-        temp_out_str = ""
-        for m in range(3):
-            temp_row_piece = remove_empty_str_elems(temp_row[m].split(" "))
-            if len(temp_row_piece) > 1:
-                for i in range(0, len(temp_row_piece), 2):
-                    (temp_row_piece[i], temp_row_piece[i + 1]) = (temp_row_piece[i + 1], temp_row_piece[i])
-            if m == 2:
-                temp_rate = temp_row_piece[0].strip()
-                temp_out.append(temp_out_str.strip())
-                temp_out.append(" " + temp_rate)
+        converted_reaction_str = ""
+        for i in range(3):
+            chem_reaction = remove_empty_str_elems(temp_row[i].split(" "))
+            if len(chem_reaction) > 1:
+                for i in range(0, len(chem_reaction), 2):
+                    (chem_reaction[i], chem_reaction[i + 1]) = (chem_reaction[i + 1], chem_reaction[i])
+            if i == 2:
+                chem_rate = chem_reaction[0].strip()
+                converted_reaction.append(converted_reaction_str.strip())
+                converted_reaction.append(" " + chem_rate)
             else:
-                k = 0
-                while k < len(temp_row_piece):
-                    if (m == 0 and temp_row_piece[k] in set(aether)) or (m == 1 and temp_row_piece[k] == waste):
-                        temp_row_piece[k] = "NULL"
-                        temp_out_str += temp_row_piece[k] + " "
-                    elif not temp_row_piece[k] in set(aether):
-                        if temp_row_piece[k] != "1":
-                            temp_out_str += temp_row_piece[k] + " "
-                        if temp_row_piece[k] == waste:
-                            temp_row_piece[k] = "NULL"
-                            temp_out_str += temp_row_piece[k] + " "
-                        if not temp_row_piece[k].isnumeric() and k < len(temp_row_piece) - 1:
-                            temp_out_str += "+ "
-                    k += 1
-                if m == 0:
-                    temp_out_str += "=> "
+                for j in range(len(chem_reaction)):
+                    if (i == 0 and chem_reaction[j] in set(aether)) or (i == 1 and chem_reaction[j] == waste):
+                        chem_reaction[j] = "NULL"
+                        converted_reaction_str += chem_reaction[j] + " "
+                    elif not chem_reaction[j] in set(aether):
+                        if chem_reaction[j] != "1":
+                            converted_reaction_str += chem_reaction[j] + " "
+                        if chem_reaction[j] == waste:
+                            chem_reaction[j] = "NULL"
+                            converted_reaction_str += chem_reaction[j] + " "
+                        if not chem_reaction[j].isnumeric() and j < len(chem_reaction) - 1:
+                            converted_reaction_str += "+ "
+                if i == 0:
+                    converted_reaction_str += "=> "
 
-        MARlea_output_lst.append(temp_out)
+        MARlea_output_lst.append(converted_reaction)
         temp = f_react.readline()
 
-    if MARlea_output_str != "":
-        if os.path.isfile(MARlea_output_str):
-            f_MARlea_output = open_marlea_file(MARlea_output_str, "w")
+    if MARlea_output_filename != "":
+        if os.path.isfile(MARlea_output_filename):
+            f_MARlea_output = open_marlea_file(MARlea_output_filename, "w")
         else:
-            f_MARlea_output = open_marlea_file(MARlea_output_str, "x")
+            f_MARlea_output = open_marlea_file(MARlea_output_filename, "x")
 
         if f_MARlea_output is None:
             return
@@ -148,9 +161,18 @@ def write_to_marcea_out(aleae_in_str, aleae_r_str, MARlea_output_str, waste, aet
     f_MARlea_output.close()
 
 
-def write_to_aleae_out(MARlea_input_str, aleae_in_str, aleae_r_str, waste, aether):
-    if ".csv" in MARlea_input_str:
-        f_MARlea_input = open_marlea_file(MARlea_input_str, "r")
+def convert_marlea_to_aleae(MARlea_input_filename, aleae_in_filename, aleae_r_filename, waste, aether):
+    """
+    The function converts a MARlea file into Aleae .in and .r files
+    :param MARlea_input_filename: name of MARlea file as input
+    :param aleae_in_filename: name of Aleae .in file as output
+    :param aleae_r_filename: name of Aleae .r file as output
+    :param waste: a specified chemical that will be converted to a NULL in the products
+    :param aether: list of chemicals that will be converted to a NULL in the reactants
+    :return:
+    """
+    if ".csv" in MARlea_input_filename:
+        f_MARlea_input = open_marlea_file(MARlea_input_filename, "r")
         if f_MARlea_input is None:
             return
         reader = csv.reader(f_MARlea_input, "excel")
@@ -158,75 +180,73 @@ def write_to_aleae_out(MARlea_input_str, aleae_in_str, aleae_r_str, waste, aethe
         for row in reader:
             MARlea_input_lst.append(row)
     else:
-        print(".csv" in MARlea_input_str)
-        print("Input file " + MARlea_input_str + " has invalid file type")
+        print(".csv" in MARlea_input_filename)
+        print("Input file " + MARlea_input_filename + " has invalid file type")
         return
 
-    temp_out_row = []
-    temp_chems = dict()
+    chem_reactions_lst = []
+    init_chems = dict()
     known_chems = []
 
     for i in range(len(MARlea_input_lst)):
-        temp_out_str = ""
+        chem_reaction_str = ""
 
         if len(MARlea_input_lst[i]) > 0 and "=>" in MARlea_input_lst[i][0]:
             temp_rate = MARlea_input_lst[i][1].strip()
             temp_reaction = MARlea_input_lst[i][0].split("=>")  # g + B1
 
             aether_term = aether[0] + ' 1 '
-            for m in range(2):
-                j = 0
-                temp_reaction_piece = temp_reaction[m].strip().split('+')
-                while j < len(temp_reaction_piece):
-                    temp_term = temp_reaction_piece[j].strip().split(" ")
-                    if m == 1:
-                        temp_out_str += aether_term
+            for j in range(2):
+                temp_reaction_piece = temp_reaction[j].strip().split('+')
+                for k in range(len(temp_reaction_piece)):
+                    temp_term = temp_reaction_piece[k].strip().split(" ")
+                    if j == 1:
+                        chem_reaction_str += aether_term
 
-                    if m == 0 and temp_term[0] == 'NULL':
+                    if j == 0 and temp_term[0] == 'NULL':
                         temp_term[0] = aether[0]
-                    elif m == 1 and temp_term[0] == 'NULL':
+                    elif j == 1 and temp_term[0] == 'NULL':
                         temp_term[0] = waste
                     else:
                         aether_term = ''
 
                     if len(temp_term) > 1:
                         (temp_term[0], temp_term[1]) = (temp_term[1], temp_term[0])
-                        temp_out_str += temp_term[0] + " " + temp_term[1]
+                        chem_reaction_str += temp_term[0] + " " + temp_term[1]
                     else:
                         temp_term.append("1")
-                        temp_out_str += temp_term[0] + ' 1'
+                        chem_reaction_str += temp_term[0] + ' 1'
 
                     if temp_term[0] not in set(known_chems):
                         known_chems.append(temp_term[0])
                         if temp_term[0] == aether[0]:
-                            temp_chems[temp_term[0]] = '1'
+                            init_chems[temp_term[0]] = '1'
                         else:
-                            temp_chems[temp_term[0]] = '0'
+                            init_chems[temp_term[0]] = '0'
 
-                    temp_out_str += " "
-                    j += 1
-                if m == 0:
-                    temp_out_str += ": "
+                    chem_reaction_str += " "
+                if j == 0:
+                    chem_reaction_str += ": "
 
-            temp_out_str = temp_out_str.strip()
-            temp_out_row.append(temp_out_str + " : " + temp_rate)
+            chem_reaction_str = chem_reaction_str.strip()
+            chem_reactions_lst.append(chem_reaction_str + " : " + temp_rate)
         elif len(MARlea_input_lst[i]) > 0:
             temp_chem = MARlea_input_lst[i][0]
             if temp_chem not in set(known_chems) and temp_chem not in set(aether):
                 known_chems.append(temp_chem)
-                temp_chems[MARlea_input_lst[i][0]] = MARlea_input_lst[i][1]
+                init_chems[MARlea_input_lst[i][0]] = MARlea_input_lst[i][1]
 
-    f_aleae_output_in = open_aleae_file_write(aleae_in_str)
+    f_aleae_output_in = open_aleae_file_write(aleae_in_filename)
     if f_aleae_output_in is None:
         return
     for elem in known_chems:
-        f_aleae_output_in.write(elem.strip() + " " + temp_chems[elem].strip() + ' N\n')
+        f_aleae_output_in.write(elem.strip() + " " + init_chems[elem].strip() + ' N\n')
     f_aleae_output_in.close()
 
-    f_aleae_output_r = open_aleae_file_write(aleae_r_str)
+    f_aleae_output_r = open_aleae_file_write(aleae_r_filename)
     if f_aleae_output_r is None:
         return
-    for elem in temp_out_row:
+    for elem in chem_reactions_lst:
         f_aleae_output_r.write(elem + "\n")
     f_aleae_output_r.close()
 
@@ -269,9 +289,6 @@ def scan_args():
             print("Error: invalid name for aether")
             exit(-1)
 
-    print(waste_local)
-    print(aether_local)
-
     if mode == Flags.A_TO_M:
         print(sys.argv[4])
         if not is_valid_flag(sys.argv[4]):
@@ -289,10 +306,10 @@ def scan_args():
             print("Error: Invalid output file type")
             exit(-1)
 
-        aleae_in_str = sys.argv[2]
-        aleae_r_str = sys.argv[3]
-        marlea_input_str = sys.argv[5]
-        write_to_marcea_out(aleae_in_str, aleae_r_str, marlea_input_str, waste_local, aether_local)
+        aleae_in_filename = sys.argv[2]
+        aleae_r_filename = sys.argv[3]
+        marlea_filename = sys.argv[5]
+        convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, marlea_filename, waste_local, aether_local)
     elif mode == Flags.M_TO_A:
         if ".csv" not in sys.argv[2] and not os.path.isfile(sys.argv[2]):
             print("Error: check if filepath is valid")
@@ -313,15 +330,12 @@ def scan_args():
                 print("Error: invalid name for aether and/or waste")
                 exit(-1)
 
-        marlea_input_str = sys.argv[2]
-        aleae_in_str = sys.argv[4]
-        aleae_r_str = sys.argv[5]
-        write_to_aleae_out(marlea_input_str, aleae_in_str, aleae_r_str, waste_local, aether_local)
+        marlea_filename = sys.argv[2]
+        aleae_in_filename = sys.argv[4]
+        aleae_r_filename = sys.argv[5]
+        convert_marlea_to_aleae(marlea_filename, aleae_in_filename, aleae_r_filename, waste_local, aether_local)
     else:
         print("Error: Invalid flag" + sys.argv[1])
 
 
 scan_args()
-
-# jfdksl.py -a initfile.in reactionfile.r -o filename.csv waste=W aether=S.r,S.g,S.b
-# jfdksl.py -m filename.csv -o initfile.in reactionfile.r waste=W aether=S
