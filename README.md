@@ -13,13 +13,20 @@ Created by then-student Marceline Sorenson, MARlea improved upon Aleae in terms 
 Due to the differences between Aleae and MARlea, converting files between their respective formats is valuable to have for simulating chemical reaction network in a laboratory setting or for EE 5393.
 
 ## Key Concepts
-According to Marc Riedel's model of computational chemical reactions, a chemical can be created from nothing, or the "aether," or is destroyed and turned to "waste." These concepts are implemented as features of MARlea, but not of Aleae. These concepts are represented below:
+According to Marc Riedel's model of computational chemical reactions, a chemical can be created from nothing or from the "aether," or is destroyed and turned to "waste." These concepts are implemented as features of MARlea, but not of Aleae. These concepts are represented below:
 * waste: 
   * Aleae: X 1 : W 1 : 100
   * MARlea: X => NULL, 100
 * aether:
   * Aleae: S.a 1 : S.a 1 X 1 : 100
   * MARlea: NULL => X, 100
+
+## Limitations 
+* Due to difference between Aleae and MARlea files, conversions between them requires certain information to be lost
+  * Names of "aether" chemicals as well as threshhold settings in Aleae files are lost when converting them to MARlea files
+  * Comments in MARlea files are discarded when converting them to Aleae files
+* All files given as inputs are not checked for their validity
+  * Any invalid file can be inputted, which may result in unexpected outputs
  
 ## Command-Line Input
 
