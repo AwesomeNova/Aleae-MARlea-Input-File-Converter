@@ -119,24 +119,24 @@ def convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, MARlea_output_f
         for i in range(3):
             chem_reaction = remove_empty_str_elems(temp_row[i].split(" "))
             if len(chem_reaction) > 1:
-                for i in range(0, len(chem_reaction), 2):
-                    (chem_reaction[i], chem_reaction[i + 1]) = (chem_reaction[i + 1], chem_reaction[i])
+                for j in range(0, len(chem_reaction), 2):
+                    (chem_reaction[j], chem_reaction[j + 1]) = (chem_reaction[j + 1], chem_reaction[j])
             if i == 2:
                 chem_rate = chem_reaction[0].strip()
                 converted_reaction.append(converted_reaction_str.strip())
                 converted_reaction.append(" " + chem_rate)
             else:
-                for j in range(len(chem_reaction)):
-                    if (i == 0 and chem_reaction[j] in set(aether)) or (i == 1 and chem_reaction[j] == waste):
-                        chem_reaction[j] = "NULL"
-                        converted_reaction_str += chem_reaction[j] + " "
-                    elif not chem_reaction[j] in set(aether):
-                        if chem_reaction[j] != "1":
-                            converted_reaction_str += chem_reaction[j] + " "
-                        if chem_reaction[j] == waste:
-                            chem_reaction[j] = "NULL"
-                            converted_reaction_str += chem_reaction[j] + " "
-                        if not chem_reaction[j].isnumeric() and j < len(chem_reaction) - 1:
+                for k in range(len(chem_reaction)):
+                    if (i == 0 and chem_reaction[k] in set(aether)) or (i == 1 and chem_reaction[k] == waste):
+                        chem_reaction[k] = "NULL"
+                        converted_reaction_str += chem_reaction[k] + " "
+                    elif not chem_reaction[k] in set(aether):
+                        if chem_reaction[k] != "1":
+                            converted_reaction_str += chem_reaction[k] + " "
+                        if chem_reaction[k] == waste:
+                            chem_reaction[k] = "NULL"
+                            converted_reaction_str += chem_reaction[k] + " "
+                        if not chem_reaction[k].isnumeric() and k < len(chem_reaction) - 1:
                             converted_reaction_str += "+ "
                 if i == 0:
                     converted_reaction_str += "=> "
