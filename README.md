@@ -27,6 +27,10 @@ According to Marc Riedel's model of computational chemical reactions, a chemical
   * Comments in MARlea files are discarded when converting them to Aleae files
 * All files given as inputs are not checked for their validity
   * Any invalid file can be inputted, which may result in unexpected outputs
+
+## System Requirements and Recommendations
+* Python 3.10 or higher Required (Latest Recommended)
+* Preferred IDE to Run Script Recommended
  
 ## Command-Line Input
 
