@@ -49,6 +49,6 @@ To operate the script, commands are entered into the terminal in this format:
 * [aether]: denotes from what chemical(s) to convert to NULL and vice versa
 
 ### Example Commands
-```python converter.py <--a_to_m> <init.in> <react.r> <--output> <MARlea_crn.csv> [waste=W] [aether=S.1,S.2,S.3]```
+```python converter.py <--a_to_m> <init.in> <react.r> <--output> <MARlea_crn.csv> [waste=W] [aether=[S.1,S.2,S.3]]```
 
 ```python converter.py <--m_to_a> <MARlea_crn.csv> <--output> <init.in> <react.r> [waste=garbo] [aether=S.1]```
