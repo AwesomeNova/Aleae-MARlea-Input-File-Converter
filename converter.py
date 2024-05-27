@@ -2,6 +2,17 @@ import os.path
 import sys
 import csv
 from enum import Enum
+from enum import IntEnum
+
+MARLEA_ARROW = "=>"
+MARLEA_NULL = 'NULL'
+
+
+class ReactionParts(IntEnum):
+    REACTANTS = 0
+    PRODUCTS = 1
+    REACTION_RATE = 2
+    NUM_FIELDS = 3
 
 
 class Flags(Enum):
@@ -45,38 +56,39 @@ def is_valid_flag(flag):
             return False
 
 
-def open_aleae_file_read(str_file):
-    """The function attempts to open an Aleae input file for reacing."""
-    try:
-        return open(str_file, "r", newline='')
-    except OSError:
-        print("Input file " + str_file + " has invalid file type")
-        return None
-
-
-def open_aleae_file_write(str_file):
-    """The function attempts to open an Aleae input file for writing."""
-    if os.path.isfile(str_file):
+def open_aleae_file_read(filename):
+    """The function attempts to open an Aleae input file for reading."""
+    if os.path.isfile(filename):
         try:
-            return open(str_file, "w", newline='')
+            return open(filename, "r", newline='')
         except OSError:
-            print("Input file " + str_file + " has invalid file type")
-            return None
+            print("Input file " + filename + " has invalid file type")
+    return None
+
+
+def open_file_write(filename):
+    """The function attempts to open an Aleae or MARlea input file for writing."""
+    if os.path.isfile(filename):
+        try:
+            return open(filename, "w", newline='')
+        except OSError:
+            print("Input file " + filename + " has invalid file type")
     else:
         try:
-            return open(str_file, "x", newline='')
+            return open(filename, "x", newline='')
         except OSError:
-            print("Input file " + str_file + " has invalid file type")
-            return None
+            print("Input file " + filename + " has invalid file type")
+    return None
 
 
-def open_marlea_file(str_file, mode):
-    """The function attempts to open an MARlea input file for reading or writing."""
-    try:
-        return open(str_file, mode, newline='')
-    except OSError:
-        print("Input file " + str_file + " has invalid file type")
-        return None
+def open_marlea_file_read(filename):
+    """The function attempts to open an MARlea input file for reading."""
+    if os.path.isfile(filename):
+        try:
+            return open(filename, 'r', newline='')
+        except OSError:
+            print("Input file " + filename + " has invalid file type")
+    return None
 
 
 def remove_empty_str_elems(lst):
@@ -97,6 +109,7 @@ def convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, MARlea_output_f
     f_init = open_aleae_file_read(aleae_in_filename)
     if f_init is None:
         return
+
     temp = f_init.readline()
     while temp != "":
         temp_row = temp.split(" ")
@@ -116,45 +129,39 @@ def convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, MARlea_output_f
         temp_row = temp.split(":")
 
         converted_reaction_str = ""
-        for i in range(3):
+        for i in range(ReactionParts.NUM_FIELDS.value):
             chem_reaction = remove_empty_str_elems(temp_row[i].split(" "))
             if len(chem_reaction) > 1:
                 for j in range(0, len(chem_reaction), 2):
                     (chem_reaction[j], chem_reaction[j + 1]) = (chem_reaction[j + 1], chem_reaction[j])
-            if i == 2:
+            if i == ReactionParts.REACTION_RATE.value:
                 chem_rate = chem_reaction[0].strip()
                 converted_reaction.append(converted_reaction_str.strip())
                 converted_reaction.append(" " + chem_rate)
             else:
                 for k in range(len(chem_reaction)):
-                    if (i == 0 and chem_reaction[k] in set(aether)) or (i == 1 and chem_reaction[k] == waste):
-                        chem_reaction[k] = "NULL"
+                    if ((i == ReactionParts.REACTANTS.value and chem_reaction[k] in set(aether)) or
+                            (i == ReactionParts.PRODUCTS.value and chem_reaction[k] == waste)):
+                        chem_reaction[k] = MARLEA_NULL
                         converted_reaction_str += chem_reaction[k] + " "
                     elif not chem_reaction[k] in set(aether):
                         if chem_reaction[k] != "1":
                             converted_reaction_str += chem_reaction[k] + " "
                         if chem_reaction[k] == waste:
-                            chem_reaction[k] = "NULL"
+                            chem_reaction[k] = MARLEA_NULL
                             converted_reaction_str += chem_reaction[k] + " "
                         if not chem_reaction[k].isnumeric() and k < len(chem_reaction) - 1:
                             converted_reaction_str += "+ "
-                if i == 0:
+                if i == ReactionParts.REACTANTS.value:
                     converted_reaction_str += "=> "
 
         MARlea_output_lst.append(converted_reaction)
         temp = f_react.readline()
 
-    if MARlea_output_filename != "":
-        if os.path.isfile(MARlea_output_filename):
-            f_MARlea_output = open_marlea_file(MARlea_output_filename, "w")
-        else:
-            f_MARlea_output = open_marlea_file(MARlea_output_filename, "x")
-
-        if f_MARlea_output is None:
-            return
-    else:
-        print("File path not provided for MARlea output file\n")
+    f_MARlea_output = open_file_write(MARlea_output_filename)
+    if f_MARlea_output is None:
         return
+
     writer = csv.writer(f_MARlea_output, "excel")
     for elem in MARlea_output_lst:
         writer.writerow(elem)
@@ -169,10 +176,9 @@ def convert_marlea_to_aleae(MARlea_input_filename, aleae_in_filename, aleae_r_fi
     :param aleae_r_filename: name of Aleae .r file as output
     :param waste: a specified chemical that will be converted to a NULL in the products
     :param aether: list of chemicals that will be converted to a NULL in the reactants
-    :return:
     """
     if ".csv" in MARlea_input_filename:
-        f_MARlea_input = open_marlea_file(MARlea_input_filename, "r")
+        f_MARlea_input = open_marlea_file_read(MARlea_input_filename)
         if f_MARlea_input is None:
             return
         reader = csv.reader(f_MARlea_input, "excel")
@@ -191,22 +197,23 @@ def convert_marlea_to_aleae(MARlea_input_filename, aleae_in_filename, aleae_r_fi
     for i in range(len(MARlea_input_lst)):
         chem_reaction_str = ""
 
-        if len(MARlea_input_lst[i]) > 0 and "=>" in MARlea_input_lst[i][0]:
+        if len(MARlea_input_lst[i]) > 0 and MARLEA_ARROW in MARlea_input_lst[i][0]:
             temp_rate = MARlea_input_lst[i][1].strip()
-            temp_reaction = MARlea_input_lst[i][0].split("=>")  # g + B1
+            temp_reaction = MARlea_input_lst[i][0].split(MARLEA_ARROW)
 
             aether_term = aether[0] + ' 1 '
-            for j in range(2):
+            for j in range(ReactionParts.NUM_FIELDS.value - 1):
                 temp_reaction_piece = temp_reaction[j].strip().split('+')
                 for k in range(len(temp_reaction_piece)):
                     temp_term = temp_reaction_piece[k].strip().split(" ")
-                    if j == 1:
+                    if j == ReactionParts.PRODUCTS.value:
                         chem_reaction_str += aether_term
 
-                    if j == 0 and temp_term[0] == 'NULL':
-                        temp_term[0] = aether[0]
-                    elif j == 1 and temp_term[0] == 'NULL':
-                        temp_term[0] = waste
+                    if temp_term[0] == MARLEA_NULL:
+                        if j == ReactionParts.REACTANTS.value:
+                            temp_term[0] = aether[0]
+                        elif j == ReactionParts.PRODUCTS.value:
+                            temp_term[0] = waste
                     else:
                         aether_term = ''
 
@@ -225,7 +232,7 @@ def convert_marlea_to_aleae(MARlea_input_filename, aleae_in_filename, aleae_r_fi
                             init_chems[temp_term[0]] = '0'
 
                     chem_reaction_str += " "
-                if j == 0:
+                if j == ReactionParts.REACTANTS.value:
                     chem_reaction_str += ": "
 
             chem_reaction_str = chem_reaction_str.strip()
@@ -236,14 +243,14 @@ def convert_marlea_to_aleae(MARlea_input_filename, aleae_in_filename, aleae_r_fi
                 known_chems.append(temp_chem)
                 init_chems[MARlea_input_lst[i][0]] = MARlea_input_lst[i][1]
 
-    f_aleae_output_in = open_aleae_file_write(aleae_in_filename)
+    f_aleae_output_in = open_file_write(aleae_in_filename)
     if f_aleae_output_in is None:
         return
     for elem in known_chems:
         f_aleae_output_in.write(elem.strip() + " " + init_chems[elem].strip() + ' N\n')
     f_aleae_output_in.close()
 
-    f_aleae_output_r = open_aleae_file_write(aleae_r_filename)
+    f_aleae_output_r = open_file_write(aleae_r_filename)
     if f_aleae_output_r is None:
         return
     for elem in chem_reactions_lst:
@@ -290,17 +297,13 @@ def scan_args():
             exit(-1)
 
     if mode == Flags.A_TO_M:
-        print(sys.argv[4])
         if not is_valid_flag(sys.argv[4]):
             print("Error: Invalid flag")
             print(sys.argv[4])
             exit(-1)
 
-        if ".in" not in sys.argv[2] and not os.path.isfile(sys.argv[2]):
-            print("Error: check if filepath is valid")
-            exit(-1)
-        if ".r" not in sys.argv[3] and not os.path.isfile(sys.argv[3]):
-            print("Error: check if filepath is valid")
+        if ".in" not in sys.argv[2] or ".r" not in sys.argv[3]:
+            print("Error: Invalid input file type")
             exit(-1)
         if ".csv" not in sys.argv[5]:
             print("Error: Invalid output file type")
@@ -311,24 +314,15 @@ def scan_args():
         marlea_filename = sys.argv[5]
         convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, marlea_filename, waste_local, aether_local)
     elif mode == Flags.M_TO_A:
-        if ".csv" not in sys.argv[2] and not os.path.isfile(sys.argv[2]):
-            print("Error: check if filepath is valid")
+        if ".csv" not in sys.argv[2]:
+            print("Error: Invalid input file type")
             exit(-1)
-        if len(sys.argv) >= 4 and not is_valid_flag(sys.argv[3]):
+        if not is_valid_flag(sys.argv[3]):
             print("Error: Invalid flag")
             exit(-1)
-        if len(sys.argv) >= 5 and ".in" not in sys.argv[4]:
+        if ".in" not in sys.argv[4] or ".r" not in sys.argv[5]:
             print("Error: Invalid output file type")
             exit(-1)
-        if len(sys.argv) >= 6 and ".r" not in sys.argv[5]:
-            print("Error: Invalid output file type")
-            exit(-1)
-        if len(sys.argv) >= 7:
-            if "waste=" in sys.argv[6]:
-                waste_local = sys.argv[6].strip("waste=")
-            else:
-                print("Error: invalid name for aether and/or waste")
-                exit(-1)
 
         marlea_filename = sys.argv[2]
         aleae_in_filename = sys.argv[4]
