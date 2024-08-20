@@ -111,7 +111,7 @@ def convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, MARlea_output_f
         return
 
     temp = f_init.readline()
-    while temp != "":
+    while temp != "":                                                           # Convert .in file to beginning of MARlea file
         temp_row = temp.split(" ")
         if temp_row[1] != "0" and temp_row[0] not in set(aether):
             MARlea_output_lst.append(temp_row[:2])
@@ -126,20 +126,21 @@ def convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, MARlea_output_f
 
     while temp != "":
         converted_reaction = []
-        temp_row = temp.split(":")
+        temp_row = temp.split(":")                                              # Split reactants, products, and rates into elements of list called temp_row
 
         converted_reaction_str = ""
         for i in range(ReactionParts.NUM_FIELDS.value):
-            chem_reaction = remove_empty_str_elems(temp_row[i].split(" "))
+            chem_reaction = remove_empty_str_elems(temp_row[i].split(" "))      # Split reactants/products and their coefficients into elements of chem_reactiosn
             if len(chem_reaction) > 1:
                 for j in range(0, len(chem_reaction), 2):
                     (chem_reaction[j], chem_reaction[j + 1]) = (chem_reaction[j + 1], chem_reaction[j])
-            if i == ReactionParts.REACTION_RATE.value:
+
+            if i == ReactionParts.REACTION_RATE.value:                          # Strip and add rate to converted reactions
                 chem_rate = chem_reaction[0].strip()
                 converted_reaction.append(converted_reaction_str.strip())
                 converted_reaction.append(" " + chem_rate)
             else:
-                for k in range(len(chem_reaction)):
+                for k in range(len(chem_reaction)):                             # Convert reactant/product part of the reaction to MARlea
                     if ((i == ReactionParts.REACTANTS.value and chem_reaction[k] in set(aether)) or
                             (i == ReactionParts.PRODUCTS.value and chem_reaction[k] == waste)):
                         chem_reaction[k] = MARLEA_NULL
@@ -197,34 +198,34 @@ def convert_marlea_to_aleae(MARlea_input_filename, aleae_in_filename, aleae_r_fi
     for i in range(len(MARlea_input_lst)):
         chem_reaction_str = ""
 
-        if len(MARlea_input_lst[i]) > 0 and MARLEA_ARROW in MARlea_input_lst[i][0]:
+        if len(MARlea_input_lst[i]) > 0 and MARLEA_ARROW in MARlea_input_lst[i][0]:         # If line contains a reaction
             temp_rate = MARlea_input_lst[i][1].strip()
-            temp_reaction = MARlea_input_lst[i][0].split(MARLEA_ARROW)
+            temp_reaction = MARlea_input_lst[i][0].split(MARLEA_ARROW)                      # Split reactions into reactants and products
 
             aether_term = aether[0] + ' 1 '
-            for j in range(ReactionParts.NUM_FIELDS.value - 1):
-                temp_reaction_piece = temp_reaction[j].strip().split('+')
+            for j in range(ReactionParts.NUM_FIELDS.value - 1):                             # MARlea only contains two relevant fields: reaction and rate
+                temp_reaction_piece = temp_reaction[j].strip().split('+')                   # Split reactants/products into terns
                 for k in range(len(temp_reaction_piece)):
                     temp_term = temp_reaction_piece[k].strip().split(" ")
                     if j == ReactionParts.PRODUCTS.value:
-                        chem_reaction_str += aether_term
+                        chem_reaction_str += aether_term                                    # Add aether term to reaction
 
-                    if temp_term[0] == MARLEA_NULL:
+                    if temp_term[0] == MARLEA_NULL:                                         # Add aether or waste term depending on location of detected NULL
                         if j == ReactionParts.REACTANTS.value:
                             temp_term[0] = aether[0]
                         elif j == ReactionParts.PRODUCTS.value:
                             temp_term[0] = waste
                     else:
-                        aether_term = ''
+                        aether_term = ''                                                    # Clear aether term for the rest of the reaction
 
                     if len(temp_term) > 1:
                         (temp_term[0], temp_term[1]) = (temp_term[1], temp_term[0])
                         chem_reaction_str += temp_term[0] + " " + temp_term[1]
                     else:
-                        temp_term.append("1")
+                        temp_term.append("1")                                               # Add '1' as coefficient if terms lacks one
                         chem_reaction_str += temp_term[0] + ' 1'
 
-                    if temp_term[0] not in set(known_chems):
+                    if temp_term[0] not in set(known_chems):                                # Add discovered chemical to known chems
                         known_chems.append(temp_term[0])
                         if temp_term[0] == aether[0]:
                             init_chems[temp_term[0]] = '1'
@@ -237,7 +238,7 @@ def convert_marlea_to_aleae(MARlea_input_filename, aleae_in_filename, aleae_r_fi
 
             chem_reaction_str = chem_reaction_str.strip()
             chem_reactions_lst.append(chem_reaction_str + " : " + temp_rate)
-        elif len(MARlea_input_lst[i]) > 0:
+        elif len(MARlea_input_lst[i]) > 0:                                          # If line contains initial state of chemicals
             temp_chem = MARlea_input_lst[i][0]
             if temp_chem not in set(known_chems) and temp_chem not in set(aether):
                 known_chems.append(temp_chem)
@@ -259,6 +260,10 @@ def convert_marlea_to_aleae(MARlea_input_filename, aleae_in_filename, aleae_r_fi
 
 
 def scan_args():
+    """
+    The function interprets the command-line input and parses it for any information needed to start converting input
+    files. All error correction is handled in this function.
+    """
     aether_local = []
     waste_local = ""
 
