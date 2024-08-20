@@ -215,7 +215,7 @@ def convert_marlea_to_aleae(MARlea_input_filename, aleae_in_filename, aleae_r_fi
                         elif j == ReactionParts.PRODUCTS.value:
                             temp_term[0] = waste
                     elif aether_loc_found and j == ReactionParts.PRODUCTS.value:
-                        chem_reaction_str += aether[0] + ' 1 '                          # Add aether term to reaction string
+                        chem_reaction_str += aether[0] + ' 1 '                              # Add aether term to reaction string
 
                     if len(temp_term) > 1:
                         (temp_term[0], temp_term[1]) = (temp_term[1], temp_term[0])
