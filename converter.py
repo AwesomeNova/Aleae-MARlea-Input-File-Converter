@@ -202,21 +202,20 @@ def convert_marlea_to_aleae(MARlea_input_filename, aleae_in_filename, aleae_r_fi
             temp_rate = MARlea_input_lst[i][1].strip()
             temp_reaction_pieces = MARlea_input_lst[i][0].split(MARLEA_ARROW)               # Split reactions into reactants and products
 
-            aether_term = aether[0] + ' 1 '
+            aether_loc_found = False
             for j in range(ReactionParts.NUM_FIELDS.value - 1):                             # MARlea only contains two relevant fields: reaction and rate
                 temp_reaction_terms = temp_reaction_pieces[j].strip().split('+')            # Split reactants/products into terns
                 for k in range(len(temp_reaction_terms)):
                     temp_term = temp_reaction_terms[k].strip().split(" ")
-                    if j == ReactionParts.PRODUCTS.value:
-                        chem_reaction_str += aether_term                                    # Add aether term to reaction
 
                     if temp_term[0] == MARLEA_NULL:                                         # Add aether or waste term depending on location of detected NULL
                         if j == ReactionParts.REACTANTS.value:
                             temp_term[0] = aether[0]
+                            aether_loc_found = True
                         elif j == ReactionParts.PRODUCTS.value:
                             temp_term[0] = waste
-                    else:
-                        aether_term = ''                                                    # Clear aether term for the rest of the reaction
+                    elif aether_loc_found and j == ReactionParts.PRODUCTS.value:
+                        chem_reaction_str += aether[0] + ' 1 '                          # Add aether term to reaction string
 
                     if len(temp_term) > 1:
                         (temp_term[0], temp_term[1]) = (temp_term[1], temp_term[0])
