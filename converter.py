@@ -124,7 +124,7 @@ def convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, MARlea_output_f
         return
     temp = f_react.readline()
 
-    while temp != "":
+    while temp != "" or temp:
         converted_reaction = []
         temp_row = temp.split(":")                                              # Split reactants, products, and rates into elements of list called temp_row
 
@@ -237,9 +237,14 @@ def convert_marlea_to_aleae(MARlea_input_filename, aleae_in_filename, aleae_r_fi
 
             chem_reaction_str = chem_reaction_str.strip()
             chem_reactions_lst.append(chem_reaction_str + " : " + temp_rate)
-        elif len(MARlea_input_lst[i]) > 0:                                          # If line contains initial state of chemicals
-            temp_chem = MARlea_input_lst[i][0]
-            if temp_chem not in set(known_chems) and temp_chem not in set(aether):
+        elif len(MARlea_input_lst[i]) > 0:
+            # If line contains initial state of chemicals
+            if "//" not in MARlea_input_lst[i][1] and "//" not in MARlea_input_lst[i][0]:
+                temp_chem = MARlea_input_lst[i][0]
+            else:
+                temp_chem = ""
+
+            if temp_chem != "" and temp_chem not in set(known_chems) and temp_chem not in set(aether):
                 known_chems.append(temp_chem)
                 init_chems[MARlea_input_lst[i][0]] = MARlea_input_lst[i][1]
 
