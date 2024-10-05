@@ -55,9 +55,8 @@ def is_valid_flag(flag):
         case _:
             return False
 
-
-def open_aleae_file_read(filename):
-    """The function attempts to open an Aleae input file for reading."""
+def open_file_read(filename):
+    """The function attempts to open an input file for reading."""
     if os.path.isfile(filename):
         try:
             return open(filename, "r", newline='')
@@ -81,16 +80,6 @@ def open_file_write(filename):
     return None
 
 
-def open_marlea_file_read(filename):
-    """The function attempts to open an MARlea input file for reading."""
-    if os.path.isfile(filename):
-        try:
-            return open(filename, 'r', newline='')
-        except OSError:
-            print("Input file " + filename + " has invalid file type")
-    return None
-
-
 def remove_empty_str_elems(lst):
     return [i for i in lst if i != ""]
 
@@ -106,7 +95,7 @@ def convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, MARlea_output_f
     """
     MARlea_output_lst = []
 
-    f_init = open_aleae_file_read(aleae_in_filename)
+    f_init = open_file_read(aleae_in_filename)
     if f_init is None:
         return
 
@@ -119,7 +108,7 @@ def convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, MARlea_output_f
     f_init.close()
     MARlea_output_lst.append([])
 
-    f_react = open_aleae_file_read(aleae_r_filename)
+    f_react = open_file_read(aleae_r_filename)
     if f_react is None:
         return
     temp = f_react.readline()
@@ -179,7 +168,7 @@ def convert_marlea_to_aleae(MARlea_input_filename, aleae_in_filename, aleae_r_fi
     :param aether: list of chemicals that will be converted to a NULL in the reactants
     """
     if ".csv" in MARlea_input_filename:
-        f_MARlea_input = open_marlea_file_read(MARlea_input_filename)
+        f_MARlea_input = open_file_read(MARlea_input_filename)
         if f_MARlea_input is None:
             return
         reader = csv.reader(f_MARlea_input, "excel")
