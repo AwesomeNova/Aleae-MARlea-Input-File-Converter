@@ -124,7 +124,7 @@ def convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, MARlea_output_f
         return
     temp = f_react.readline()
 
-    while temp != "" or temp:
+    while temp != "":
         converted_reaction = []
         temp_row = temp.split(":")                                              # Split reactants, products, and rates into elements of list called temp_row
 
