@@ -365,7 +365,6 @@ def scan_args():
     """
     aether_local = []
     waste_local = ""
-    pipeline_enable = False
 
     if sys.version_info.major < 3 and sys.version_info.minor < 10:
         print("Version of Python must be 3.10 or higher")
