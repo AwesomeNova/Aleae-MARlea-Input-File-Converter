@@ -6,6 +6,8 @@ from enum import IntEnum
 from queue import Queue
 from threading import Thread
 
+ALEAE_FIELD_SEPARATOR = ':'
+MARLEA_TERM_SEPARATOR = '+'
 MARLEA_ARROW = "=>"
 MARLEA_NULL = 'NULL'
 
@@ -165,7 +167,7 @@ def aleae_to_marlea_converter(waste, aether):
     temp = input_file_reader_to_converter_queue.get()
     while temp != END_PROCEDURE:
         converted_reaction = []
-        temp_row = temp.split(":")                                              # Split reactants, products, and rates into elements of list called temp_row
+        temp_row = temp.split(ALEAE_FIELD_SEPARATOR)                            # Split reactants, products, and rates into elements of list called temp_row
 
         converted_reaction_str = ""
         for i in range(ReactionParts.NUM_FIELDS.value):
@@ -191,9 +193,9 @@ def aleae_to_marlea_converter(waste, aether):
                             chem_reaction[k] = MARLEA_NULL
                             converted_reaction_str += chem_reaction[k] + " "
                         if not chem_reaction[k].isnumeric() and k < len(chem_reaction) - 1:
-                            converted_reaction_str += "+ "
+                            converted_reaction_str += MARLEA_TERM_SEPARATOR + " "
                 if i == ReactionParts.REACTANTS.value:
-                    converted_reaction_str += "=> "
+                    converted_reaction_str += MARLEA_ARROW + ' '
 
         converter_to_output_file_writer_queue_0.put(converted_reaction)
         temp = input_file_reader_to_converter_queue.get()
@@ -276,7 +278,7 @@ def marlea_to_aleae_converter(waste, aether):
 
         aether_loc_found = False
         for j in range(ReactionParts.NUM_FIELDS.value - 1):                             # MARlea only contains two relevant fields: reaction and rate
-            temp_reaction_terms = temp_reaction_pieces[j].strip().split('+')            # Split reactants/products into terns
+            temp_reaction_terms = temp_reaction_pieces[j].strip().split(MARLEA_TERM_SEPARATOR)  # Split reactants/products into terns
             for k in range(len(temp_reaction_terms)):
                 temp_term = temp_reaction_terms[k].strip().split(" ")
 
@@ -305,10 +307,11 @@ def marlea_to_aleae_converter(waste, aether):
                                                                 found_chems[temp_term[0]].strip() + ' N\n')
                 chem_reaction_str += " "
             if j == ReactionParts.REACTANTS.value:
-                chem_reaction_str += ": "
+                chem_reaction_str += ALEAE_FIELD_SEPARATOR + " "
 
         chem_reaction_str = chem_reaction_str.strip()
-        converter_to_output_file_writer_queue_1.put(chem_reaction_str + " : " + temp_rate + '\n')
+        converter_to_output_file_writer_queue_1.put(chem_reaction_str + ' ' + ALEAE_FIELD_SEPARATOR
+                                                    + ' ' + temp_rate + '\n')
 
         temp = input_file_reader_to_converter_queue.get()
 
