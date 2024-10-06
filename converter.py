@@ -42,7 +42,7 @@ class ReactionParts(IntEnum):
 class Flags(Enum):
     A_TO_M = "--a_to_m"
     M_TO_A = "--m_to_a"
-    OUTPUT = "--output"
+    SEQUENTIAL_OUTPUT = "--sequential_output"
     PIPELINE_OUTPUT = "--pipeline_output"
 
 
@@ -64,8 +64,8 @@ def alt_flag(flag):
             return Flags("--a_to_m")
         case "-m":
             return Flags("--m_to_a")
-        case "-o":
-            return Flags("--output")
+        case "-s":
+            return Flags("--sequential_output")
         case "-p":
             return Flags("--pipeline_output")
         case _:
@@ -77,7 +77,7 @@ def is_valid_flag(flag):
     match flag:
         case "--a_to_m" | "--m_to_a" | "--output":
             return True
-        case "-a" | "-m" | "-o" | "-p":
+        case "-a" | "-m" | "-s" | "-p":
             return True
         case _:
             return False

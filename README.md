@@ -42,7 +42,7 @@ To operate the script, commands are entered into the terminal in this format:
 
 * --a_to_m, -a: convert Aleae files into a MARlea file
 * --m_to_a, -m: convert MARlea file to Aleae files
-* --output, -o: precedes output file name(s), selects sequential execution
+* --sequential_output, -o: precedes output file name(s), selects sequential execution
 * --pipelined_output, -p: precedes output file name(s), selects pipelined execution
 
 ### Options
@@ -50,7 +50,7 @@ To operate the script, commands are entered into the terminal in this format:
 * [aether]: denotes from what chemical(s) to convert to NULL and vice versa
 
 ### Example Commands
-```python converter.py --a_to_m init.in react.r --output MARlea_crn.csv [waste=W] [aether=[S.1,S.2,S.3]]```
+```python converter.py --a_to_m init.in react.r --sequential_output MARlea_crn.csv [waste=W] [aether=[S.1,S.2,S.3]]```
 
 ```python converter.py --m_to_a MARlea_crn.csv --pipelined_output init.in react.r [waste=garbo] [aether=S.1]```
 
@@ -77,3 +77,7 @@ To operate the script, commands are entered into the terminal in this format:
     * Rewrote file reading, writing, and conversion subroutines to implement pipelined execution via threads
     * Replaced hard-coded sys.args indices with IntEnums
     * Added flags to enable either sequential or pipelined execution
+
+## Potential Feature(s) to Be Added
+* Error checking of all input files before beginning file conversion process
+* Support for converting non-csv input MARlea files into Aleae output files
