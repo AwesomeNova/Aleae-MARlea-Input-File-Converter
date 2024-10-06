@@ -3,10 +3,17 @@ import sys
 import csv
 from enum import Enum
 from enum import IntEnum
+from queue import Queue
+from threading import Thread
 
 MARLEA_ARROW = "=>"
 MARLEA_NULL = 'NULL'
 
+input_file_reader_to_converter_queue = Queue()                  # Setup queues for inter-thread communication
+input_file_reader_to_output_writer_queue = Queue()
+converter_to_output_file_writer_queue_0 = Queue()
+converter_to_output_file_writer_queue_1 = Queue()
+END_PROCEDURE = "fin"
 
 class ReactionParts(IntEnum):
     REACTANTS = 0
@@ -84,36 +91,60 @@ def remove_empty_str_elems(lst):
     return [i for i in lst if i != ""]
 
 
-def convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, MARlea_output_filename, waste, aether):
+def read_aleae_in_file(aleae_in_filename, aether):
     """
-    The function converts Aleae .in and .r files into one MARlea file.
+    Read each line from an Aleae input file, pre-process it if needed, and send it to a writer via a queue
     :param aleae_in_filename: name of Aleae .in file
-    :param aleae_r_filename: name of Aleae .r file
-    :param MARlea_output_filename: name of MARlea file
-    :param waste: a specified chemical that will be converted to a NULL in the products
     :param aether: list of chemicals that will be converted to a NULL in the reactants
     """
-    MARlea_output_lst = []
-
     f_init = open_file_read(aleae_in_filename)
     if f_init is None:
+        input_file_reader_to_converter_queue.put(END_PROCEDURE)
+        input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
         return
 
     temp = f_init.readline()
     while temp != "":                                                           # Convert .in file to beginning of MARlea file
         temp_row = temp.split(" ")
         if temp_row[1] != "0" and temp_row[0] not in set(aether):
-            MARlea_output_lst.append(temp_row[:2])
+            input_file_reader_to_output_writer_queue.put(temp_row[:2])
         temp = f_init.readline()
+
     f_init.close()
-    MARlea_output_lst.append([])
+
+
+def read_aleae_r_file(aleae_r_filename):
+    """
+    Read each line from a Aleae .r input file and send it to a converter via a queue
+    :param aleae_r_filename: name of Aleae .r file
+    """
+
+    input_file_reader_to_output_writer_queue.put([])
+    input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
 
     f_react = open_file_read(aleae_r_filename)
     if f_react is None:
+        input_file_reader_to_converter_queue.put(END_PROCEDURE)
+        input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
         return
-    temp = f_react.readline()
 
-    while temp != "":
+    temp = f_react.readline()
+    while temp != "":                                                           # Convert .r file to reaction in a MARlea file
+        input_file_reader_to_converter_queue.put(temp)
+        temp = f_react.readline()
+
+    input_file_reader_to_converter_queue.put(END_PROCEDURE)
+    f_react.close()
+
+
+def aleae_to_marlea_converter(waste, aether):
+    """
+    Converts each line from Aleae file into a line from a MARlea file.
+    :param waste: a specified chemical that will be converted to a NULL in the products
+    :param aether: list of chemicals that will be converted to a NULL in the reactants
+    """
+    temp = input_file_reader_to_converter_queue.get()
+    while temp != END_PROCEDURE:
         converted_reaction = []
         temp_row = temp.split(":")                                              # Split reactants, products, and rates into elements of list called temp_row
 
@@ -145,51 +176,89 @@ def convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, MARlea_output_f
                 if i == ReactionParts.REACTANTS.value:
                     converted_reaction_str += "=> "
 
-        MARlea_output_lst.append(converted_reaction)
-        temp = f_react.readline()
+        converter_to_output_file_writer_queue_0.put(converted_reaction)
+        temp = input_file_reader_to_converter_queue.get()
 
+    converter_to_output_file_writer_queue_0.put(END_PROCEDURE)
+
+
+def write_marlea_file(MARlea_output_filename):
+    """
+    Receive any line from the Aleae input file reader and converter and write to the MARlea file.
+    :param MARlea_output_filename: name of MARlea file
+    """
     f_MARlea_output = open_file_write(MARlea_output_filename)
     if f_MARlea_output is None:
         return
 
     writer = csv.writer(f_MARlea_output, "excel")
-    for elem in MARlea_output_lst:
-        writer.writerow(elem)
+    temp = input_file_reader_to_output_writer_queue.get()
+    while temp != END_PROCEDURE:
+        writer.writerow(temp)                                               # Write line from any reader
+        temp = input_file_reader_to_output_writer_queue.get()
+
+    temp = converter_to_output_file_writer_queue_0.get()
+    while temp != END_PROCEDURE:
+        writer.writerow(temp)                                               # Write processes line from converter
+        temp = converter_to_output_file_writer_queue_0.get()
+
     f_MARlea_output.close()
 
 
-def convert_marlea_to_aleae(MARlea_input_filename, aleae_in_filename, aleae_r_filename, waste, aether):
+def read_marlea_file(MARlea_input_filename):
     """
-    The function converts a MARlea file into Aleae .in and .r files
+    Read each row from a MARlea input file, pre-process said row, and send it to either a converter or writer.
     :param MARlea_input_filename: name of MARlea file as input
-    :param aleae_in_filename: name of Aleae .in file as output
-    :param aleae_r_filename: name of Aleae .r file as output
-    :param waste: a specified chemical that will be converted to a NULL in the products
-    :param aether: list of chemicals that will be converted to a NULL in the reactants
     """
     if ".csv" in MARlea_input_filename:
         f_MARlea_input = open_file_read(MARlea_input_filename)
         if f_MARlea_input is None:
             return
         reader = csv.reader(f_MARlea_input, "excel")
-        MARlea_input_lst = []
+
+        reactions = []
         for row in reader:
-            MARlea_input_lst.append(row)
+            if len(row) > 0 and "//" not in row[1] and "//" not in row[0]:      # Filter out row without initialized chemicals or reactions
+                if MARLEA_ARROW in row[0]:
+                    reactions.append(row)                                       # Store any reactions found that will be sent later
+                elif row[1] != "" and row[0] != "":
+                    input_file_reader_to_output_writer_queue.put(row)
+                    input_file_reader_to_converter_queue.put(row)
+
+        input_file_reader_to_converter_queue.put(END_PROCEDURE)
+        input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
+
+        for elem in reactions:
+            input_file_reader_to_converter_queue.put(elem)
+        input_file_reader_to_converter_queue.put(END_PROCEDURE)
     else:
         print(".csv" in MARlea_input_filename)
         print("Input file " + MARlea_input_filename + " has invalid file type")
+        input_file_reader_to_converter_queue.put(END_PROCEDURE)
+        input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
         return
 
-    chem_reactions_lst = []
+def marlea_to_aleae_converter(waste, aether):
+    """
+    Convert a row from the reader into a line for either an Aleae .in file or an Aleae .r file and send it to the
+    appropriate writer.
+    :param waste: a specified chemical that will be converted to a NULL in the products
+    :param aether: list of chemicals that will be converted to a NULL in the reactants
+    """
     init_chems = dict()
     known_chems = []
 
-    for i in range(len(MARlea_input_lst)):
-        chem_reaction_str = ""
+    temp = input_file_reader_to_converter_queue.get()
+    while temp != END_PROCEDURE:
+        known_chems.append(temp[0])
+        temp = input_file_reader_to_converter_queue.get()
 
-        if len(MARlea_input_lst[i]) > 0 and MARLEA_ARROW in MARlea_input_lst[i][0]:         # If line contains a reaction
-            temp_rate = MARlea_input_lst[i][1].strip()
-            temp_reaction_pieces = MARlea_input_lst[i][0].split(MARLEA_ARROW)               # Split reactions into reactants and products
+    temp = input_file_reader_to_converter_queue.get()
+    while temp != END_PROCEDURE:
+        chem_reaction_str = ""
+        if MARLEA_ARROW in temp[0]:         # If line contains a reaction
+            temp_rate = temp[1].strip()
+            temp_reaction_pieces = temp[0].split(MARLEA_ARROW)               # Split reactions into reactants and products
 
             aether_loc_found = False
             for j in range(ReactionParts.NUM_FIELDS.value - 1):                             # MARlea only contains two relevant fields: reaction and rate
@@ -219,36 +288,59 @@ def convert_marlea_to_aleae(MARlea_input_filename, aleae_in_filename, aleae_r_fi
                             init_chems[temp_term[0]] = '1'
                         else:
                             init_chems[temp_term[0]] = '0'
+                        converter_to_output_file_writer_queue_0.put([temp_term[0], init_chems[temp_term[0]]])
 
                     chem_reaction_str += " "
                 if j == ReactionParts.REACTANTS.value:
                     chem_reaction_str += ": "
 
             chem_reaction_str = chem_reaction_str.strip()
-            chem_reactions_lst.append(chem_reaction_str + " : " + temp_rate)
-        elif len(MARlea_input_lst[i]) > 0:
-            # If line contains initial state of chemicals
-            if "//" not in MARlea_input_lst[i][1] and "//" not in MARlea_input_lst[i][0]:
-                temp_chem = MARlea_input_lst[i][0]
-            else:
-                temp_chem = ""
+            converter_to_output_file_writer_queue_1.put(chem_reaction_str + " : " + temp_rate)
+        elif temp[0] not in set(aether):
+                init_chems[temp[0]] = temp[1]
 
-            if temp_chem != "" and temp_chem not in set(known_chems) and temp_chem not in set(aether):
-                known_chems.append(temp_chem)
-                init_chems[MARlea_input_lst[i][0]] = MARlea_input_lst[i][1]
+        temp = input_file_reader_to_converter_queue.get()
 
+    converter_to_output_file_writer_queue_0.put(END_PROCEDURE)
+    converter_to_output_file_writer_queue_1.put(END_PROCEDURE)
+
+def write_aleae_in_file(aleae_in_filename):
+    """
+    Receive row from either the reader or converter and write to .in Aleae file
+    :param aleae_in_filename: name of Aleae .in file as output
+    """
     f_aleae_output_in = open_file_write(aleae_in_filename)
     if f_aleae_output_in is None:
         return
-    for elem in known_chems:
-        f_aleae_output_in.write(elem.strip() + " " + init_chems[elem].strip() + ' N\n')
+
+    temp = input_file_reader_to_output_writer_queue.get()
+    while temp != END_PROCEDURE:
+        f_aleae_output_in.write(temp[0].strip() + " " + temp[1].strip() + ' N\n')   # Process and write line from reader
+        temp = input_file_reader_to_output_writer_queue.get()
+
+    temp = converter_to_output_file_writer_queue_0.get()
+    while temp != END_PROCEDURE:
+        f_aleae_output_in.write(temp[0].strip() + " " + temp[1].strip() + ' N\n')   # Process and write lines from converter
+        temp = converter_to_output_file_writer_queue_0.get()
+
     f_aleae_output_in.close()
 
+
+def write_aleae_r_file(aleae_r_filename):
+    """
+    Receive row from either the converter and write to .r Aleae file
+    :param aleae_r_filename:
+    :return:
+    """
     f_aleae_output_r = open_file_write(aleae_r_filename)
     if f_aleae_output_r is None:
         return
-    for elem in chem_reactions_lst:
-        f_aleae_output_r.write(elem + "\n")
+
+    temp = converter_to_output_file_writer_queue_1.get()
+    while temp != END_PROCEDURE:
+        f_aleae_output_r.write(temp + "\n")                         # Write converted line
+        temp = converter_to_output_file_writer_queue_1.get()
+
     f_aleae_output_r.close()
 
 
@@ -310,7 +402,21 @@ def scan_args():
         aleae_in_filename = sys.argv[2]
         aleae_r_filename = sys.argv[3]
         marlea_filename = sys.argv[5]
-        convert_aleae_to_marlea(aleae_in_filename, aleae_r_filename, marlea_filename, waste_local, aether_local)
+
+        reader_in_thread = Thread(None, read_aleae_in_file, None, [aleae_in_filename, aether_local, ])
+        reader_r_thread = Thread(None, read_aleae_r_file, None, [aleae_r_filename, ])
+        converter_thread = Thread(None, aleae_to_marlea_converter, None, [waste_local, aether_local, ])
+        writer_thread = Thread(None, write_marlea_file, None, [marlea_filename, ])
+
+        reader_in_thread.start()
+        reader_r_thread.start()
+        converter_thread.start()
+        writer_thread.start()
+
+        reader_in_thread.join()
+        reader_r_thread.join()
+        converter_thread.join()
+        writer_thread.join()
     elif mode == Flags.M_TO_A:
         if ".csv" not in sys.argv[2]:
             print("Error: Invalid input file type")
@@ -325,7 +431,21 @@ def scan_args():
         marlea_filename = sys.argv[2]
         aleae_in_filename = sys.argv[4]
         aleae_r_filename = sys.argv[5]
-        convert_marlea_to_aleae(marlea_filename, aleae_in_filename, aleae_r_filename, waste_local, aether_local)
+
+        reader_thread = Thread(None, read_marlea_file, None, [marlea_filename, ])
+        converter_thread = Thread(None, marlea_to_aleae_converter, None, [waste_local, aether_local, ])
+        writer_thread_in = Thread(None, write_aleae_in_file, None, [aleae_in_filename, ])
+        writer_thread_r = Thread(None, write_aleae_r_file, None, [aleae_r_filename, ])
+
+        reader_thread.start()
+        converter_thread.start()
+        writer_thread_in.start()
+        writer_thread_r.start()
+
+        reader_thread.join()
+        converter_thread.join()
+        writer_thread_in.join()
+        writer_thread_r.join()
     else:
         print("Error: Invalid flag" + sys.argv[1])
 
