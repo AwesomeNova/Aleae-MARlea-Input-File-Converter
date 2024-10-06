@@ -75,7 +75,7 @@ To operate the script, commands are entered into the terminal in this format:
 * October 6, 2024
   * 1.1: 
     * Rewrote file reading, writing, and conversion subroutines to implement pipelined execution via threads
-    * Replaced hard-coded sys.args indices with IntEnums
+    * Replaced hard-coded sys.argv indices with IntEnums
     * Added flags to enable either sequential or pipelined execution
 
 ## Potential Feature(s) to Be Added
