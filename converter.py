@@ -1,3 +1,15 @@
+"""
+Name: AwesomeNova
+Updated at: 10/6/2024
+
+Script for converting Aleae files into MARlea ones and vice versa via sequential or pipelined execution. Please read the
+README to learn how to use it. The script does not check for whether an input file given to it is valid, specified by the
+documentation of Aleae and MARlea, but any converted file will be valid if a given input file or set of files is valid.
+
+There are no known bugs found in the code at the moment. However, if you encountered a bug or issue while using this script,
+please send an issue on the GitHub repo or push a fix of the code on a separate branch and make a pull request.
+"""
+
 import os.path
 import sys
 import csv
