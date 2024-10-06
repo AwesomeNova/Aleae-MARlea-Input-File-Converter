@@ -42,7 +42,8 @@ To operate the script, commands are entered into the terminal in this format:
 
 * --a_to_m, -a: convert Aleae files into a MARlea file
 * --m_to_a, -m: convert MARlea file to Aleae files
-* --output, -o: precedes output file name
+* --output, -o: precedes output file name(s), selects sequential execution
+* --pipelined_output, -p: precedes output file name(s), selects pipelined execution
 
 ### Options
 * [waste]: denotes from what chemical to convert to NULL and vice versa
@@ -51,4 +52,28 @@ To operate the script, commands are entered into the terminal in this format:
 ### Example Commands
 ```python converter.py --a_to_m init.in react.r --output MARlea_crn.csv [waste=W] [aether=[S.1,S.2,S.3]]```
 
-```python converter.py --m_to_a MARlea_crn.csv --output init.in react.r [waste=garbo] [aether=S.1]```
+```python converter.py --m_to_a MARlea_crn.csv --pipelined_output init.in react.r [waste=garbo] [aether=S.1]```
+
+## Changelog
+* May 15, 2024
+  * 1.0: 
+    * Created converter
+  * 1.0.1: 
+    * Fixed potential bug at for loop within convert_aleae_to_marlea() tasked with swapping chem with coefficient
+* May 27, 2024
+  * 1.0.2: 
+    * Refactored error checking code in scan_args(), refactored and changed file opening functions to shift file checking to said functions, and added enums for parts of chemical reactions
+* August 20, 2024
+  * 1.0.3: 
+    * Lightly simplified logic pertaining to adding aether term to chem_reaction_str
+* October 3, 2024
+  * 1.0.4: 
+    * Fixed MARlea comments occassionally being written to .in files when converting MARlea files or Aleae files
+  * 1.0.5:
+    * Fixed error in the condition for the while loop in convert_aleae_to_marlea()
+    * Removed redundant functions that open files for reading and replaced them with one function open_file_read()
+* October 6, 2024
+  * 1.1: 
+    * Rewrote file reading, writing, and conversion subroutines to implement pipelined execution via threads
+    * Replaced hard-coded sys.args indices with IntEnums
+    * Added flags to enable either sequential or pipelined execution

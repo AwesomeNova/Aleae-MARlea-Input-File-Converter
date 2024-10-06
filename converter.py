@@ -11,9 +11,26 @@ MARLEA_NULL = 'NULL'
 
 input_file_reader_to_converter_queue = Queue()                  # Setup queues for inter-thread communication
 input_file_reader_to_output_writer_queue = Queue()
+input_file_reader_to_converter_auxilliary_queue = Queue()
 converter_to_output_file_writer_queue_0 = Queue()
 converter_to_output_file_writer_queue_1 = Queue()
 END_PROCEDURE = "fin"
+
+class ArgPosition(IntEnum):
+    MODE = 1
+    MARLEA_INPUT_FILE = 2
+    IN_INPUT_FILE = 2
+    R_INPUT_FILE = 3
+    OUTPUT_FLAG_A = 4
+    OUTPUT_FLAG_M = 3
+    IN_OUTPUT_FILE = 4
+    R_OUTPUT_FILE = 5
+    MARLEA_OUTPUT_FILE = 5
+    WASTE_AETHER = 6
+    AETHER_EXCLUSIVE = 7
+    MAX_COMMAND_LINE_LEN = 8
+    MIN_COMMAND_LINE_LEN = 6
+
 
 class ReactionParts(IntEnum):
     REACTANTS = 0
@@ -26,6 +43,7 @@ class Flags(Enum):
     A_TO_M = "--a_to_m"
     M_TO_A = "--m_to_a"
     OUTPUT = "--output"
+    PIPELINE_OUTPUT = "--pipeline_output"
 
 
 def process_flag(flag):
@@ -48,6 +66,8 @@ def alt_flag(flag):
             return Flags("--m_to_a")
         case "-o":
             return Flags("--output")
+        case "-p":
+            return Flags("--pipeline_output")
         case _:
             return None
 
@@ -57,7 +77,7 @@ def is_valid_flag(flag):
     match flag:
         case "--a_to_m" | "--m_to_a" | "--output":
             return True
-        case "-a" | "-m" | "-o":
+        case "-a" | "-m" | "-o" | "-p":
             return True
         case _:
             return False
@@ -112,16 +132,15 @@ def read_aleae_in_file(aleae_in_filename, aether):
 
     f_init.close()
 
-
-def read_aleae_r_file(aleae_r_filename):
-    """
-    Read each line from a Aleae .r input file and send it to a converter via a queue
-    :param aleae_r_filename: name of Aleae .r file
-    """
-
     input_file_reader_to_output_writer_queue.put([])
     input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
 
+
+def read_aleae_r_file(aleae_r_filename):
+    """
+    Read each line from an Aleae .r input file and send it to a converter via a queue
+    :param aleae_r_filename: name of Aleae .r file
+    """
     f_react = open_file_read(aleae_r_filename)
     if f_react is None:
         input_file_reader_to_converter_queue.put(END_PROCEDURE)
@@ -216,24 +235,21 @@ def read_marlea_file(MARlea_input_filename):
             return
         reader = csv.reader(f_MARlea_input, "excel")
 
-        reactions = []
         for row in reader:
-            if len(row) > 0 and "//" not in row[1] and "//" not in row[0]:      # Filter out row without initialized chemicals or reactions
+            if len(row) > 0 and "//" not in row[1] and "//" not in row[0]:       # Filter out row without initialized chemicals or reactions
                 if MARLEA_ARROW in row[0]:
-                    reactions.append(row)                                       # Store any reactions found that will be sent later
+                    input_file_reader_to_converter_queue.put(row)                # Send any reactions to the converter
                 elif row[1] != "" and row[0] != "":
-                    input_file_reader_to_output_writer_queue.put(row)
-                    input_file_reader_to_converter_queue.put(row)
+                    input_file_reader_to_output_writer_queue.put(row[0].strip() + " " + row[1].strip() + ' N\n')
+                    input_file_reader_to_converter_auxilliary_queue.put(row)
 
-        input_file_reader_to_converter_queue.put(END_PROCEDURE)
+        input_file_reader_to_converter_auxilliary_queue.put(END_PROCEDURE)
         input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
-
-        for elem in reactions:
-            input_file_reader_to_converter_queue.put(elem)
         input_file_reader_to_converter_queue.put(END_PROCEDURE)
     else:
         print(".csv" in MARlea_input_filename)
         print("Input file " + MARlea_input_filename + " has invalid file type")
+        input_file_reader_to_converter_auxilliary_queue.put(END_PROCEDURE)
         input_file_reader_to_converter_queue.put(END_PROCEDURE)
         input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
         return
@@ -245,59 +261,54 @@ def marlea_to_aleae_converter(waste, aether):
     :param waste: a specified chemical that will be converted to a NULL in the products
     :param aether: list of chemicals that will be converted to a NULL in the reactants
     """
-    init_chems = dict()
-    known_chems = []
+    found_chems = dict()
 
-    temp = input_file_reader_to_converter_queue.get()
+    temp = input_file_reader_to_converter_auxilliary_queue.get()                        # .in output will be incorrect if known chemicals are not found before processing reactions
     while temp != END_PROCEDURE:
-        known_chems.append(temp[0])
-        temp = input_file_reader_to_converter_queue.get()
+        found_chems[temp[0]] = temp[1]
+        temp = input_file_reader_to_converter_auxilliary_queue.get()
 
     temp = input_file_reader_to_converter_queue.get()
     while temp != END_PROCEDURE:
         chem_reaction_str = ""
-        if MARLEA_ARROW in temp[0]:         # If line contains a reaction
-            temp_rate = temp[1].strip()
-            temp_reaction_pieces = temp[0].split(MARLEA_ARROW)               # Split reactions into reactants and products
+        temp_rate = temp[1].strip()
+        temp_reaction_pieces = temp[0].split(MARLEA_ARROW)                              # Split reactions into reactants and products
 
-            aether_loc_found = False
-            for j in range(ReactionParts.NUM_FIELDS.value - 1):                             # MARlea only contains two relevant fields: reaction and rate
-                temp_reaction_terms = temp_reaction_pieces[j].strip().split('+')            # Split reactants/products into terns
-                for k in range(len(temp_reaction_terms)):
-                    temp_term = temp_reaction_terms[k].strip().split(" ")
+        aether_loc_found = False
+        for j in range(ReactionParts.NUM_FIELDS.value - 1):                             # MARlea only contains two relevant fields: reaction and rate
+            temp_reaction_terms = temp_reaction_pieces[j].strip().split('+')            # Split reactants/products into terns
+            for k in range(len(temp_reaction_terms)):
+                temp_term = temp_reaction_terms[k].strip().split(" ")
 
-                    if temp_term[0] == MARLEA_NULL:                                         # Add aether or waste term depending on location of detected NULL
-                        if j == ReactionParts.REACTANTS.value:
-                            temp_term[0] = aether[0]
-                            aether_loc_found = True
-                        elif j == ReactionParts.PRODUCTS.value:
-                            temp_term[0] = waste
-                    elif aether_loc_found and j == ReactionParts.PRODUCTS.value:
-                        chem_reaction_str += aether[0] + ' 1 '                              # Add aether term to reaction string
+                if temp_term[0] == MARLEA_NULL:                                         # Add aether or waste term depending on location of detected NULL
+                    if j == ReactionParts.REACTANTS.value:
+                        temp_term[0] = aether[0]
+                        aether_loc_found = True
+                    elif j == ReactionParts.PRODUCTS.value:
+                        temp_term[0] = waste
+                elif aether_loc_found and j == ReactionParts.PRODUCTS.value:
+                    chem_reaction_str += aether[0] + ' 1 '                              # Add aether term to reaction string
 
-                    if len(temp_term) > 1:
-                        (temp_term[0], temp_term[1]) = (temp_term[1], temp_term[0])
-                        chem_reaction_str += temp_term[0] + " " + temp_term[1]
+                if len(temp_term) > 1:
+                    (temp_term[0], temp_term[1]) = (temp_term[1], temp_term[0])
+                    chem_reaction_str += temp_term[0] + " " + temp_term[1]
+                else:
+                    temp_term.append("1")                                               # Add '1' as coefficient if terms lacks one
+                    chem_reaction_str += temp_term[0] + ' 1'
+
+                if temp_term[0] not in set(found_chems.keys()):
+                    if temp_term[0] == aether[0]:                                       # Add discovered chemical to found_chems
+                        found_chems[temp_term[0]] = '1'
                     else:
-                        temp_term.append("1")                                               # Add '1' as coefficient if terms lacks one
-                        chem_reaction_str += temp_term[0] + ' 1'
+                        found_chems[temp_term[0]] = '0'
+                    converter_to_output_file_writer_queue_0.put(temp_term[0].strip() + " " +
+                                                                found_chems[temp_term[0]].strip() + ' N\n')
+                chem_reaction_str += " "
+            if j == ReactionParts.REACTANTS.value:
+                chem_reaction_str += ": "
 
-                    if temp_term[0] not in set(known_chems):                                # Add discovered chemical to known chems
-                        known_chems.append(temp_term[0])
-                        if temp_term[0] == aether[0]:
-                            init_chems[temp_term[0]] = '1'
-                        else:
-                            init_chems[temp_term[0]] = '0'
-                        converter_to_output_file_writer_queue_0.put([temp_term[0], init_chems[temp_term[0]]])
-
-                    chem_reaction_str += " "
-                if j == ReactionParts.REACTANTS.value:
-                    chem_reaction_str += ": "
-
-            chem_reaction_str = chem_reaction_str.strip()
-            converter_to_output_file_writer_queue_1.put(chem_reaction_str + " : " + temp_rate)
-        elif temp[0] not in set(aether):
-                init_chems[temp[0]] = temp[1]
+        chem_reaction_str = chem_reaction_str.strip()
+        converter_to_output_file_writer_queue_1.put(chem_reaction_str + " : " + temp_rate + '\n')
 
         temp = input_file_reader_to_converter_queue.get()
 
@@ -315,12 +326,12 @@ def write_aleae_in_file(aleae_in_filename):
 
     temp = input_file_reader_to_output_writer_queue.get()
     while temp != END_PROCEDURE:
-        f_aleae_output_in.write(temp[0].strip() + " " + temp[1].strip() + ' N\n')   # Process and write line from reader
-        temp = input_file_reader_to_output_writer_queue.get()
+        f_aleae_output_in.write(temp)
+        temp = input_file_reader_to_output_writer_queue.get()                       # Write line from reader
 
     temp = converter_to_output_file_writer_queue_0.get()
     while temp != END_PROCEDURE:
-        f_aleae_output_in.write(temp[0].strip() + " " + temp[1].strip() + ' N\n')   # Process and write lines from converter
+        f_aleae_output_in.write(temp)                                               # Write lines from converter
         temp = converter_to_output_file_writer_queue_0.get()
 
     f_aleae_output_in.close()
@@ -338,7 +349,7 @@ def write_aleae_r_file(aleae_r_filename):
 
     temp = converter_to_output_file_writer_queue_1.get()
     while temp != END_PROCEDURE:
-        f_aleae_output_r.write(temp + "\n")                         # Write converted line
+        f_aleae_output_r.write(temp)                                                # Write converted line
         temp = converter_to_output_file_writer_queue_1.get()
 
     f_aleae_output_r.close()
@@ -351,103 +362,120 @@ def scan_args():
     """
     aether_local = []
     waste_local = ""
+    pipeline_enable = False
 
     if sys.version_info.major < 3 and sys.version_info.minor < 10:
         print("Version of Python must be 3.10 or higher")
         return
-    if len(sys.argv) < 6:
+    if len(sys.argv) < ArgPosition.MIN_COMMAND_LINE_LEN.value:
         print("Error: No or too few arguments provided")
         exit(-1)
 
-    mode = process_flag(sys.argv[1])
-    if mode is None:
+    input_mode = process_flag(sys.argv[ArgPosition.MODE.value])
+    if input_mode is None:
         print("Error: Arguments provided are invalid")
         exit(-1)
-    elif len(sys.argv) > 8:
+    elif len(sys.argv) > ArgPosition.MAX_COMMAND_LINE_LEN.value:
         print("Error: Too many arguments provided")
         exit(-1)
 
     if len(sys.argv) >= 7:
-        if "waste=" in sys.argv[6]:
-            waste_local = sys.argv[6].strip("waste=")
-        elif "aether=[" in sys.argv[6]:
-            aether_local = sys.argv[6].strip("aether[=").strip(']').split(',')
-        elif "aether=" in sys.argv[6]:
-            aether_local = sys.argv[6].strip("aether=").split(',')
+        if "waste=" in sys.argv[ArgPosition.WASTE_AETHER.value]:
+            waste_local = sys.argv[ArgPosition.WASTE_AETHER.value].strip("waste=")
+        elif "aether=[" in sys.argv[ArgPosition.WASTE_AETHER.value]:
+            aether_local = sys.argv[ArgPosition.WASTE_AETHER.value].strip("aether[=").strip(']').split(',')
+        elif "aether=" in sys.argv[ArgPosition.WASTE_AETHER.value]:
+            test = sys.argv[ArgPosition.WASTE_AETHER.value].strip("aether=").split(',')
+            aether_local = sys.argv[ArgPosition.WASTE_AETHER.value].strip("aether=").split(',')
         else:
             print("Error: invalid name for aether and/or waste")
             exit(-1)
     if len(sys.argv) >= 8:
-        if "aether=[" in sys.argv[7]:
-            aether_local = sys.argv[7].strip("aether[=").strip(']').split(',')
-        elif "aether=" in sys.argv[7]:
-            aether_local = sys.argv[7].strip("aether=").split(',')
+        if "aether=[" in sys.argv[ArgPosition.AETHER_EXCLUSIVE.value]:
+            aether_local = sys.argv[ArgPosition.AETHER_EXCLUSIVE.value].strip("aether[=").strip(']').split(',')
+        elif "aether=" in sys.argv[ArgPosition.AETHER_EXCLUSIVE.value]:
+            aether_local = sys.argv[ArgPosition.AETHER_EXCLUSIVE.value].strip("aether=").split(',')
         else:
             print("Error: invalid name for aether")
             exit(-1)
 
-    if mode == Flags.A_TO_M:
-        if not is_valid_flag(sys.argv[4]):
-            print("Error: Invalid flag")
-            print(sys.argv[4])
+    if input_mode == Flags.A_TO_M:
+        if not is_valid_flag(sys.argv[ArgPosition.OUTPUT_FLAG_A.value]):
+            print("Error: Invalid output flag")
+            print(sys.argv[ArgPosition.OUTPUT_FLAG_A.value])
             exit(-1)
 
-        if ".in" not in sys.argv[2] or ".r" not in sys.argv[3]:
+        if ".in" not in sys.argv[ArgPosition.IN_INPUT_FILE.value] or ".r" not in sys.argv[ArgPosition.R_INPUT_FILE.value]:
             print("Error: Invalid input file type")
             exit(-1)
-        if ".csv" not in sys.argv[5]:
+        if ".csv" not in sys.argv[ArgPosition.MARLEA_OUTPUT_FILE.value]:
             print("Error: Invalid output file type")
             exit(-1)
 
-        aleae_in_filename = sys.argv[2]
-        aleae_r_filename = sys.argv[3]
-        marlea_filename = sys.argv[5]
+        output_mode = process_flag(sys.argv[ArgPosition.OUTPUT_FLAG_A.value])
 
-        reader_in_thread = Thread(None, read_aleae_in_file, None, [aleae_in_filename, aether_local, ])
-        reader_r_thread = Thread(None, read_aleae_r_file, None, [aleae_r_filename, ])
-        converter_thread = Thread(None, aleae_to_marlea_converter, None, [waste_local, aether_local, ])
-        writer_thread = Thread(None, write_marlea_file, None, [marlea_filename, ])
+        aleae_in_filename = sys.argv[ArgPosition.IN_INPUT_FILE.value]
+        aleae_r_filename = sys.argv[ArgPosition.R_INPUT_FILE.value]
+        marlea_filename = sys.argv[ArgPosition.MARLEA_OUTPUT_FILE.value]
+        if output_mode == Flags.PIPELINE_OUTPUT:
+            reader_in_thread = Thread(None, read_aleae_in_file, None, [aleae_in_filename, aether_local, ])
+            reader_r_thread = Thread(None, read_aleae_r_file, None, [aleae_r_filename, ])
+            converter_thread = Thread(None, aleae_to_marlea_converter, None, [waste_local, aether_local, ])
+            writer_thread = Thread(None, write_marlea_file, None, [marlea_filename, ])
 
-        reader_in_thread.start()
-        reader_r_thread.start()
-        converter_thread.start()
-        writer_thread.start()
+            reader_in_thread.start()
+            reader_r_thread.start()
+            converter_thread.start()
+            writer_thread.start()
 
-        reader_in_thread.join()
-        reader_r_thread.join()
-        converter_thread.join()
-        writer_thread.join()
-    elif mode == Flags.M_TO_A:
-        if ".csv" not in sys.argv[2]:
+            reader_in_thread.join()
+            reader_r_thread.join()
+            converter_thread.join()
+            writer_thread.join()
+        else:
+            read_aleae_in_file(aleae_in_filename, aether_local)
+            read_aleae_r_file(aleae_r_filename)
+            aleae_to_marlea_converter(waste_local, aether_local)
+            write_marlea_file(marlea_filename)
+    elif input_mode == Flags.M_TO_A:
+        if ".csv" not in sys.argv[ArgPosition.MARLEA_INPUT_FILE.value]:
             print("Error: Invalid input file type")
             exit(-1)
-        if not is_valid_flag(sys.argv[3]):
+        if not is_valid_flag(sys.argv[ArgPosition.OUTPUT_FLAG_M.value]):
             print("Error: Invalid flag")
             exit(-1)
-        if ".in" not in sys.argv[4] or ".r" not in sys.argv[5]:
+        if ".in" not in sys.argv[ArgPosition.IN_OUTPUT_FILE.value] or ".r" not in sys.argv[ArgPosition.R_OUTPUT_FILE.value]:
             print("Error: Invalid output file type")
             exit(-1)
 
-        marlea_filename = sys.argv[2]
-        aleae_in_filename = sys.argv[4]
-        aleae_r_filename = sys.argv[5]
+        output_mode = process_flag(sys.argv[ArgPosition.OUTPUT_FLAG_M.value])
 
-        reader_thread = Thread(None, read_marlea_file, None, [marlea_filename, ])
-        converter_thread = Thread(None, marlea_to_aleae_converter, None, [waste_local, aether_local, ])
-        writer_thread_in = Thread(None, write_aleae_in_file, None, [aleae_in_filename, ])
-        writer_thread_r = Thread(None, write_aleae_r_file, None, [aleae_r_filename, ])
+        marlea_filename = sys.argv[ArgPosition.MARLEA_INPUT_FILE.value]
+        aleae_in_filename = sys.argv[ArgPosition.IN_OUTPUT_FILE.value]
+        aleae_r_filename = sys.argv[ArgPosition.R_OUTPUT_FILE.value]
 
-        reader_thread.start()
-        converter_thread.start()
-        writer_thread_in.start()
-        writer_thread_r.start()
+        if output_mode == Flags.PIPELINE_OUTPUT:
+            reader_thread = Thread(None, read_marlea_file, None, [marlea_filename, ])
+            converter_thread = Thread(None, marlea_to_aleae_converter, None, [waste_local, aether_local, ])
+            writer_thread_in = Thread(None, write_aleae_in_file, None, [aleae_in_filename, ])
+            writer_thread_r = Thread(None, write_aleae_r_file, None, [aleae_r_filename, ])
 
-        reader_thread.join()
-        converter_thread.join()
-        writer_thread_in.join()
-        writer_thread_r.join()
+            reader_thread.start()
+            converter_thread.start()
+            writer_thread_in.start()
+            writer_thread_r.start()
+
+            reader_thread.join()
+            converter_thread.join()
+            writer_thread_in.join()
+            writer_thread_r.join()
+        else:
+            read_marlea_file(marlea_filename)
+            marlea_to_aleae_converter(waste_local, aether_local)
+            write_aleae_in_file(aleae_in_filename)
+            write_aleae_r_file(aleae_r_filename)
     else:
-        print("Error: Invalid flag" + sys.argv[1])
+        print("Error: Invalid flag" + sys.argv[ArgPosition.MODE.value])
 
 
 scan_args()
