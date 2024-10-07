@@ -29,13 +29,13 @@ According to Marc Riedel's model of computational chemical reactions, a chemical
   * Any invalid file can be inputted, which may result in unexpected outputs
 
 ## System Requirements and Recommendations
-* Python 3.10 or higher Required (Latest Recommended)
+* Python 3.8 or higher Required (Latest Recommended)
 * Preferred IDE to Run Script Recommended
  
 ## Command-Line Input
 To operate the script, commands are entered into the terminal in this format:
 
-```python converter.py <mode cmd> <--input> <input files> [--pipeline_enable] <--output> <output file> [waste] [aether]```
+```python converter.py <mode-cmd> <--input> <input file(s)> [--pipeline_enable] <--output> <output-file(s)> [--waste] [--aether]```
 
 ### Commands
 * a-to-m: convert Aleae files into a MARlea file
@@ -46,7 +46,7 @@ To operate the script, commands are entered into the terminal in this format:
 * --output, -o: precedes output file name(s)
 
 ### Optional Flags
-* --pipelined_enable, -p: enables pipelined execution
+* [--pipelined_enable], -p: enables pipelined execution
 * [--waste]: denotes from what chemical to convert to NULL and vice versa
 * [--aether]: denotes from what chemical(s) to convert to NULL and vice versa
 
