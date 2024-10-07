@@ -33,26 +33,27 @@ According to Marc Riedel's model of computational chemical reactions, a chemical
 * Preferred IDE to Run Script Recommended
  
 ## Command-Line Input
-
 To operate the script, commands are entered into the terminal in this format:
 
-```python converter.py <mode flag> <input files> <--output> <output file> [waste] [aether]```
+```python converter.py <mode cmd> <--input> <input files> [--pipeline_enable] <--output> <output file> [waste] [aether]```
 
-### Flags
+### Commands
+* a-to-m: convert Aleae files into a MARlea file
+* m-to-a: convert MARlea file to Aleae files
 
-* --a_to_m, -a: convert Aleae files into a MARlea file
-* --m_to_a, -m: convert MARlea file to Aleae files
-* --sequential_output, -o: precedes output file name(s), selects sequential execution
-* --pipelined_output, -p: precedes output file name(s), selects pipelined execution
+### Required Flags
+* --input, -i: precedes input file name(s)
+* --output, -o: precedes output file name(s)
 
-### Options
-* [waste]: denotes from what chemical to convert to NULL and vice versa
-* [aether]: denotes from what chemical(s) to convert to NULL and vice versa
+### Optional Flags
+* --pipelined_enable, -p: enables pipelined execution
+* [--waste]: denotes from what chemical to convert to NULL and vice versa
+* [--aether]: denotes from what chemical(s) to convert to NULL and vice versa
 
 ### Example Commands
-```python converter.py --a_to_m init.in react.r --sequential_output MARlea_crn.csv [waste=W] [aether=[S.1,S.2,S.3]]```
+```python converter.py a-to-m -i init.in react.r -o MARlea_crn.csv --waste W --aether S.1 S.2 S.3```
 
-```python converter.py --m_to_a MARlea_crn.csv --pipelined_output init.in react.r [waste=garbo] [aether=S.1]```
+```python converter.py m_to_a -i MARlea_crn.csv -p -o init.in react.r --waste garbo --aether S.1```
 
 ## Changelog
 * May 15, 2024
@@ -77,7 +78,13 @@ To operate the script, commands are entered into the terminal in this format:
     * Rewrote file reading, writing, and conversion subroutines to implement pipelined execution via threads
     * Replaced hard-coded sys.argv indices with IntEnums
     * Added flags to enable either sequential or pipelined execution
+* October 7, 2024
+  * 1.1.1:
+    * Rewrote command-line parsing using the argparse Python library
+    * Altered commands to accommodate change in command-line parsing
+    * Fixed a NoneType indexing attempt bug in the MARlea-to-Aleae converter when no aether chemical is not specified 
 
 ## Potential Feature(s) to Be Added
 * Error checking of all input files before beginning file conversion process
+* A GUI to enter the parameters in, loading in when no commands are given
 * Support for converting non-csv input MARlea files into Aleae output files

@@ -9,11 +9,10 @@ documentation of Aleae and MARlea, but any converted file will be valid if a giv
 There are no known bugs found in the code at the moment. However, if you encountered a bug or issue while using this script,
 please send an issue on the GitHub repo or push a fix of the code on a separate branch and make a pull request.
 """
-
+import argparse
 import os.path
 import sys
 import csv
-from enum import Enum
 from enum import IntEnum
 from queue import Queue
 from threading import Thread
@@ -30,51 +29,12 @@ converter_to_output_file_writer_queue_0 = Queue()
 converter_to_output_file_writer_queue_1 = Queue()
 END_PROCEDURE = "fin"
 
-class ArgPosition(IntEnum):
-    MODE = 1
-    MARLEA_INPUT_FILE = 2
-    IN_INPUT_FILE = 2
-    R_INPUT_FILE = 3
-    OUTPUT_FLAG_A = 4
-    OUTPUT_FLAG_M = 3
-    IN_OUTPUT_FILE = 4
-    R_OUTPUT_FILE = 5
-    MARLEA_OUTPUT_FILE = 5
-    WASTE_AETHER = 6
-    AETHER_EXCLUSIVE = 7
-    MAX_COMMAND_LINE_LEN = 8
-    MIN_COMMAND_LINE_LEN = 6
-
 
 class ReactionParts(IntEnum):
     REACTANTS = 0
     PRODUCTS = 1
     REACTION_RATE = 2
     NUM_FIELDS = 3
-
-A_TO_M_FLAG = "--a_to_m"
-M_TO_A_FLAG = "--m_to_a"
-SEQUENTIAL_OUTPUT_FLAG = "--sequential_output"
-PIPELINE_OUTPUT_FLAG = "--pipeline_output"
-
-
-def process_flag(flag):
-    """ The function parses a flag given as input and return an enum representation of the input flag if successful or
-    the return value of alt_flag() if a ValueError exception was thrown"""
-
-    match flag:
-        case "--a_to_m" | "--m_to_a" | "--sequential_output" | "--pipeline_output":
-            return flag
-        case "-a":
-            return A_TO_M_FLAG
-        case "-m":
-            return M_TO_A_FLAG
-        case "-s":
-            return SEQUENTIAL_OUTPUT_FLAG
-        case "-p":
-            return PIPELINE_OUTPUT_FLAG
-        case _:
-            return None
 
 
 def open_file_read(filename):
@@ -93,12 +53,12 @@ def open_file_write(filename):
         try:
             return open(filename, "w", newline='')
         except OSError:
-            print("Input file " + filename + " has invalid file type")
+            print("Input file " + filename + " failed to be opened.")
     else:
         try:
             return open(filename, "x", newline='')
         except OSError:
-            print("Input file " + filename + " has invalid file type")
+            print("Input file " + filename + " failed to be opened.")
     return None
 
 
@@ -287,7 +247,7 @@ def marlea_to_aleae_converter(waste, aether):
                     chem_reaction_str += temp_term[0] + ' 1'
 
                 if temp_term[0] not in set(found_chems.keys()):
-                    if temp_term[0] == aether[0]:                                       # Add discovered chemical to found_chems
+                    if len(aether) > 0 and temp_term[0] == aether[0]:             # Add discovered chemical to found_chems
                         found_chems[temp_term[0]] = '1'
                     else:
                         found_chems[temp_term[0]] = '0'
@@ -351,63 +311,61 @@ def scan_args():
     The function interprets the command-line input and parses it for any information needed to start converting input
     files. All error correction is handled in this function.
     """
-    aether_local = []
+
     waste_local = ""
+    aether_local = []
 
-    if sys.version_info.major < 3 and sys.version_info.minor < 10:
-        print("Version of Python must be 3.10 or higher")
+    if sys.version_info.major < 3 and sys.version_info.minor < 8:
+        print("Version of Python must be 3.8 or higher")
         return
-    if len(sys.argv) < ArgPosition.MIN_COMMAND_LINE_LEN.value:
-        print("Error: No or too few arguments provided")
-        exit(-1)
 
-    input_mode = process_flag(sys.argv[ArgPosition.MODE.value])
-    if input_mode is None:
-        print("Error: Arguments provided are invalid")
-        exit(-1)
-    elif len(sys.argv) > ArgPosition.MAX_COMMAND_LINE_LEN.value:
-        print("Error: Too many arguments provided")
-        exit(-1)
+    main_parser = argparse.ArgumentParser(prog="converter.py", add_help=True)
+    subparsers = main_parser.add_subparsers(dest="command")
 
-    if len(sys.argv) >= 7:
-        if "waste=" in sys.argv[ArgPosition.WASTE_AETHER.value]:
-            waste_local = sys.argv[ArgPosition.WASTE_AETHER.value].strip("waste=")
-        elif "aether=[" in sys.argv[ArgPosition.WASTE_AETHER.value]:
-            aether_local = sys.argv[ArgPosition.WASTE_AETHER.value].strip("aether[=").strip(']').split(',')
-        elif "aether=" in sys.argv[ArgPosition.WASTE_AETHER.value]:
-            test = sys.argv[ArgPosition.WASTE_AETHER.value].strip("aether=").split(',')
-            aether_local = sys.argv[ArgPosition.WASTE_AETHER.value].strip("aether=").split(',')
+    a_to_m_parser = subparsers.add_parser("a-to-m", usage="convert Aleae files into MARlea files")
+    a_to_m_parser.add_argument("-i", "--input", action='store', nargs=2, required=True, help="input help")
+    a_to_m_parser.add_argument("-p", "--pipeline_enable", action='store_true')
+    a_to_m_parser.add_argument("-o", "--output", action='store', required=True)
+    a_to_m_parser.add_argument("--waste", action='store', required=False)
+    a_to_m_parser.add_argument("--aether", action='store', nargs='*')
+
+    m_to_a_parser = subparsers.add_parser("m-to-a", usage="convert MARlea files into Aleae files")
+    m_to_a_parser.add_argument("-i", "--input", action='store', required=True)
+    m_to_a_parser.add_argument("-p", "--pipeline_enable", action='store_true')
+    m_to_a_parser.add_argument("-o", "--output", action='store', nargs=2, required=True)
+    m_to_a_parser.add_argument("--waste", action='store', required=False)
+    m_to_a_parser.add_argument("--aether", action='store', nargs='*')
+
+    parsed_args = main_parser.parse_args(sys.argv[1:])
+
+    if parsed_args.waste is not None:
+        waste_local = parsed_args.waste
+
+    if parsed_args.aether is not None:
+        aether_local = parsed_args.aether
+
+    input_mode = parsed_args.command
+    input_files = parsed_args.input
+    pipeline_enabled = parsed_args.pipeline_enable
+    output_files = parsed_args.output
+
+    if input_mode == "a-to-m":
+        if ".in" in input_files[0] or ".r" in input_files[1]:
+            aleae_in_filename = input_files[0]
+            aleae_r_filename = input_files[1]
+        elif ".in" in input_files[1] or ".r" in input_files[0]:
+            aleae_in_filename = input_files[1]
+            aleae_r_filename = input_files[0]
         else:
-            print("Error: invalid name for aether and/or waste")
-            exit(-1)
-    if len(sys.argv) >= 8:
-        if "aether=[" in sys.argv[ArgPosition.AETHER_EXCLUSIVE.value]:
-            aether_local = sys.argv[ArgPosition.AETHER_EXCLUSIVE.value].strip("aether[=").strip(']').split(',')
-        elif "aether=" in sys.argv[ArgPosition.AETHER_EXCLUSIVE.value]:
-            aether_local = sys.argv[ArgPosition.AETHER_EXCLUSIVE.value].strip("aether=").split(',')
-        else:
-            print("Error: invalid name for aether")
-            exit(-1)
-
-    if input_mode == A_TO_M_FLAG:
-        if process_flag(sys.argv[ArgPosition.OUTPUT_FLAG_A.value]) is None:
-            print("Error: Invalid output flag")
-            print(sys.argv[ArgPosition.OUTPUT_FLAG_A.value])
-            exit(-1)
-
-        if ".in" not in sys.argv[ArgPosition.IN_INPUT_FILE.value] or ".r" not in sys.argv[ArgPosition.R_INPUT_FILE.value]:
             print("Error: Invalid input file type")
             exit(-1)
-        if ".csv" not in sys.argv[ArgPosition.MARLEA_OUTPUT_FILE.value]:
+
+        marlea_filename = output_files
+        if ".csv" not in marlea_filename:
             print("Error: Invalid output file type")
             exit(-1)
 
-        output_mode = process_flag(sys.argv[ArgPosition.OUTPUT_FLAG_A.value])
-
-        aleae_in_filename = sys.argv[ArgPosition.IN_INPUT_FILE.value]
-        aleae_r_filename = sys.argv[ArgPosition.R_INPUT_FILE.value]
-        marlea_filename = sys.argv[ArgPosition.MARLEA_OUTPUT_FILE.value]
-        if output_mode == PIPELINE_OUTPUT_FLAG:
+        if pipeline_enabled:
             reader_in_thread = Thread(None, read_aleae_in_file, None, [aleae_in_filename, aether_local, ])
             reader_r_thread = Thread(None, read_aleae_r_file, None, [aleae_r_filename, ])
             converter_thread = Thread(None, aleae_to_marlea_converter, None, [waste_local, aether_local, ])
@@ -427,45 +385,47 @@ def scan_args():
             read_aleae_r_file(aleae_r_filename)
             aleae_to_marlea_converter(waste_local, aether_local)
             write_marlea_file(marlea_filename)
-    elif input_mode == M_TO_A_FLAG:
-        if ".csv" not in sys.argv[ArgPosition.MARLEA_INPUT_FILE.value]:
-            print("Error: Invalid input file type")
-            exit(-1)
-        if process_flag(sys.argv[ArgPosition.OUTPUT_FLAG_M.value]) is None:
-            print("Error: Invalid flag")
-            exit(-1)
-        if ".in" not in sys.argv[ArgPosition.IN_OUTPUT_FILE.value] or ".r" not in sys.argv[ArgPosition.R_OUTPUT_FILE.value]:
+
+
+    elif input_mode == "m-to-a":
+        if ".in" in output_files[0] or ".r" in output_files[1]:
+            aleae_in_filename = output_files[0]
+            aleae_r_filename = output_files[1]
+        elif ".in" in output_files[1] or ".r" in output_files[0]:
+            aleae_in_filename = output_files[1]
+            aleae_r_filename = output_files[0]
+        else:
             print("Error: Invalid output file type")
             exit(-1)
 
-        output_mode = process_flag(sys.argv[ArgPosition.OUTPUT_FLAG_M.value])
+        marlea_filename = input_files
+        if ".csv" not in marlea_filename:
+            print("Error: Invalid input file type")
+            exit(-1)
 
-        marlea_filename = sys.argv[ArgPosition.MARLEA_INPUT_FILE.value]
-        aleae_in_filename = sys.argv[ArgPosition.IN_OUTPUT_FILE.value]
-        aleae_r_filename = sys.argv[ArgPosition.R_OUTPUT_FILE.value]
+        if pipeline_enabled:
+                reader_thread = Thread(None, read_marlea_file, None, [marlea_filename, ])
+                converter_thread = Thread(None, marlea_to_aleae_converter, None, [waste_local, aether_local, ])
+                writer_thread_in = Thread(None, write_aleae_in_file, None, [aleae_in_filename, ])
+                writer_thread_r = Thread(None, write_aleae_r_file, None, [aleae_r_filename, ])
 
-        if output_mode == PIPELINE_OUTPUT_FLAG:
-            reader_thread = Thread(None, read_marlea_file, None, [marlea_filename, ])
-            converter_thread = Thread(None, marlea_to_aleae_converter, None, [waste_local, aether_local, ])
-            writer_thread_in = Thread(None, write_aleae_in_file, None, [aleae_in_filename, ])
-            writer_thread_r = Thread(None, write_aleae_r_file, None, [aleae_r_filename, ])
+                reader_thread.start()
+                converter_thread.start()
+                writer_thread_in.start()
+                writer_thread_r.start()
 
-            reader_thread.start()
-            converter_thread.start()
-            writer_thread_in.start()
-            writer_thread_r.start()
-
-            reader_thread.join()
-            converter_thread.join()
-            writer_thread_in.join()
-            writer_thread_r.join()
+                reader_thread.join()
+                converter_thread.join()
+                writer_thread_in.join()
+                writer_thread_r.join()
         else:
             read_marlea_file(marlea_filename)
             marlea_to_aleae_converter(waste_local, aether_local)
             write_aleae_in_file(aleae_in_filename)
             write_aleae_r_file(aleae_r_filename)
     else:
-        print("Error: Invalid flag " + sys.argv[ArgPosition.MODE.value])
+        print("Error: Invalid command.")
+        exit(-1)
 
 
 scan_args()
