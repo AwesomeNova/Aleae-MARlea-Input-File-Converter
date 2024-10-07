@@ -52,49 +52,30 @@ class ReactionParts(IntEnum):
     REACTION_RATE = 2
     NUM_FIELDS = 3
 
-
-class Flags(Enum):
-    A_TO_M = "--a_to_m"
-    M_TO_A = "--m_to_a"
-    SEQUENTIAL_OUTPUT = "--sequential_output"
-    PIPELINE_OUTPUT = "--pipeline_output"
+A_TO_M_FLAG = "--a_to_m"
+M_TO_A_FLAG = "--m_to_a"
+SEQUENTIAL_OUTPUT_FLAG = "--sequential_output"
+PIPELINE_OUTPUT_FLAG = "--pipeline_output"
 
 
 def process_flag(flag):
     """ The function parses a flag given as input and return an enum representation of the input flag if successful or
     the return value of alt_flag() if a ValueError exception was thrown"""
 
-    try:
-        return Flags(flag)
-    except ValueError:
-        return alt_flag(flag)
-
-
-def alt_flag(flag):
-    """The function parses a flag that has thrown a ValueError exception in process_flag(). It return the enum if the
-    flag is matched successfully and None otherwise."""
     match flag:
+        case "--a_to_m" | "--m_to_a" | "--sequential_output" | "--pipeline_output":
+            return flag
         case "-a":
-            return Flags("--a_to_m")
+            return A_TO_M_FLAG
         case "-m":
-            return Flags("--m_to_a")
+            return M_TO_A_FLAG
         case "-s":
-            return Flags("--sequential_output")
+            return SEQUENTIAL_OUTPUT_FLAG
         case "-p":
-            return Flags("--pipeline_output")
+            return PIPELINE_OUTPUT_FLAG
         case _:
             return None
 
-
-def is_valid_flag(flag):
-    """The function checks if a flag is valid."""
-    match flag:
-        case "--a_to_m" | "--m_to_a" | "--output":
-            return True
-        case "-a" | "-m" | "-s" | "-p":
-            return True
-        case _:
-            return False
 
 def open_file_read(filename):
     """The function attempts to open an input file for reading."""
@@ -408,8 +389,8 @@ def scan_args():
             print("Error: invalid name for aether")
             exit(-1)
 
-    if input_mode == Flags.A_TO_M:
-        if not is_valid_flag(sys.argv[ArgPosition.OUTPUT_FLAG_A.value]):
+    if input_mode == A_TO_M_FLAG:
+        if process_flag(sys.argv[ArgPosition.OUTPUT_FLAG_A.value]) is None:
             print("Error: Invalid output flag")
             print(sys.argv[ArgPosition.OUTPUT_FLAG_A.value])
             exit(-1)
@@ -426,7 +407,7 @@ def scan_args():
         aleae_in_filename = sys.argv[ArgPosition.IN_INPUT_FILE.value]
         aleae_r_filename = sys.argv[ArgPosition.R_INPUT_FILE.value]
         marlea_filename = sys.argv[ArgPosition.MARLEA_OUTPUT_FILE.value]
-        if output_mode == Flags.PIPELINE_OUTPUT:
+        if output_mode == PIPELINE_OUTPUT_FLAG:
             reader_in_thread = Thread(None, read_aleae_in_file, None, [aleae_in_filename, aether_local, ])
             reader_r_thread = Thread(None, read_aleae_r_file, None, [aleae_r_filename, ])
             converter_thread = Thread(None, aleae_to_marlea_converter, None, [waste_local, aether_local, ])
@@ -446,11 +427,11 @@ def scan_args():
             read_aleae_r_file(aleae_r_filename)
             aleae_to_marlea_converter(waste_local, aether_local)
             write_marlea_file(marlea_filename)
-    elif input_mode == Flags.M_TO_A:
+    elif input_mode == M_TO_A_FLAG:
         if ".csv" not in sys.argv[ArgPosition.MARLEA_INPUT_FILE.value]:
             print("Error: Invalid input file type")
             exit(-1)
-        if not is_valid_flag(sys.argv[ArgPosition.OUTPUT_FLAG_M.value]):
+        if process_flag(sys.argv[ArgPosition.OUTPUT_FLAG_M.value]) is None:
             print("Error: Invalid flag")
             exit(-1)
         if ".in" not in sys.argv[ArgPosition.IN_OUTPUT_FILE.value] or ".r" not in sys.argv[ArgPosition.R_OUTPUT_FILE.value]:
@@ -463,7 +444,7 @@ def scan_args():
         aleae_in_filename = sys.argv[ArgPosition.IN_OUTPUT_FILE.value]
         aleae_r_filename = sys.argv[ArgPosition.R_OUTPUT_FILE.value]
 
-        if output_mode == Flags.PIPELINE_OUTPUT:
+        if output_mode == PIPELINE_OUTPUT_FLAG:
             reader_thread = Thread(None, read_marlea_file, None, [marlea_filename, ])
             converter_thread = Thread(None, marlea_to_aleae_converter, None, [waste_local, aether_local, ])
             writer_thread_in = Thread(None, write_aleae_in_file, None, [aleae_in_filename, ])
@@ -484,7 +465,7 @@ def scan_args():
             write_aleae_in_file(aleae_in_filename)
             write_aleae_r_file(aleae_r_filename)
     else:
-        print("Error: Invalid flag" + sys.argv[ArgPosition.MODE.value])
+        print("Error: Invalid flag " + sys.argv[ArgPosition.MODE.value])
 
 
 scan_args()
