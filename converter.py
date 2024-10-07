@@ -243,30 +243,25 @@ def read_marlea_file(MARlea_input_filename):
     Read each row from a MARlea input file, pre-process said row, and send it to either a converter or writer.
     :param MARlea_input_filename: name of MARlea file as input
     """
-    if ".csv" in MARlea_input_filename:
-        f_MARlea_input = open_file_read(MARlea_input_filename)
-        if f_MARlea_input is None:
-            return
-        reader = csv.reader(f_MARlea_input, "excel")
-
-        for row in reader:
-            if len(row) > 0 and "//" not in row[1] and "//" not in row[0]:       # Filter out row without initialized chemicals or reactions
-                if MARLEA_ARROW in row[0]:
-                    input_file_reader_to_converter_queue.put(row)                # Send any reactions to the converter
-                elif row[1] != "" and row[0] != "":
-                    input_file_reader_to_output_writer_queue.put(row[0].strip() + " " + row[1].strip() + ' N\n')
-                    input_file_reader_to_converter_auxilliary_queue.put(row)
-
-        input_file_reader_to_converter_auxilliary_queue.put(END_PROCEDURE)
-        input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
-        input_file_reader_to_converter_queue.put(END_PROCEDURE)
-    else:
-        print(".csv" in MARlea_input_filename)
-        print("Input file " + MARlea_input_filename + " has invalid file type")
+    f_MARlea_input = open_file_read(MARlea_input_filename)
+    if f_MARlea_input is None:
         input_file_reader_to_converter_auxilliary_queue.put(END_PROCEDURE)
         input_file_reader_to_converter_queue.put(END_PROCEDURE)
         input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
         return
+    reader = csv.reader(f_MARlea_input, "excel")
+
+    for row in reader:
+        if len(row) > 0 and "//" not in row[1] and "//" not in row[0]:       # Filter out row without initialized chemicals or reactions
+            if MARLEA_ARROW in row[0]:
+                input_file_reader_to_converter_queue.put(row)                # Send any reactions to the converter
+            elif row[1] != "" and row[0] != "":
+                input_file_reader_to_output_writer_queue.put(row[0].strip() + " " + row[1].strip() + ' N\n')
+                input_file_reader_to_converter_auxilliary_queue.put(row)
+
+    input_file_reader_to_converter_auxilliary_queue.put(END_PROCEDURE)
+    input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
+    input_file_reader_to_converter_queue.put(END_PROCEDURE)
 
 def marlea_to_aleae_converter(waste, aether):
     """
