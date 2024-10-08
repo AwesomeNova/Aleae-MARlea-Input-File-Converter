@@ -6,6 +6,7 @@ import sys
 ALEAE_FIELD_SEPARATOR = ':'
 MARLEA_TERM_SEPARATOR = '+'
 MARLEA_ARROW = "=>"
+MARLEA_NULL = 'NULL'
 
 
 def open_file_read(filename):
@@ -96,10 +97,13 @@ def check_aleae_files(aleae_in_filename, aleae_r_filename):
 
 def check_marlea_line(row):
     temp_fields = row[0].strip().split(MARLEA_ARROW)
-    print(temp_fields)
     for i in range(2):
         if len(temp_fields) > 2:
             print("Invalid reaction formant: " + temp_fields)
+            return False
+
+        if MARLEA_NULL in temp_fields[i] and MARLEA_TERM_SEPARATOR in temp_fields[i]:
+            print("invalid use of NULL keyword in field: " + temp_fields[i])
             return False
 
         temp_terms = temp_fields[i].strip().split(MARLEA_TERM_SEPARATOR)
@@ -110,6 +114,9 @@ def check_marlea_line(row):
 
             if len(t) == 1 and not t[0].isnumeric():
                 continue
+            elif len(t) > 1 and t[1] == MARLEA_NULL or t[0] == MARLEA_NULL:
+                print("invalid use of NULL keyword: " + t[0] + ' ' + t[1])
+                return False
             elif len(t) == 2 and t[0].isnumeric() and not t[1].isnumeric():
                 continue
             else:
