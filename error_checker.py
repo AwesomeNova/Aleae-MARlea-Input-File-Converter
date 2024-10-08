@@ -109,18 +109,19 @@ def check_marlea_line(row):
         temp_terms = temp_fields[i].strip().split(MARLEA_TERM_SEPARATOR)
 
         for term in temp_terms:
-            print(term)
             t = term.strip().split()
-
-            if len(t) == 1 and not t[0].isnumeric():
+            if len(t) == 1:
+                if t[0].isnumeric():
+                    print("invalid term: " + t[0])
+                    return False
                 continue
-            elif len(t) > 1 and t[1] == MARLEA_NULL or t[0] == MARLEA_NULL:
+            elif len(t) > 1 and (t[1] == MARLEA_NULL or t[0] == MARLEA_NULL):
                 print("invalid use of NULL keyword: " + t[0] + ' ' + t[1])
                 return False
             elif len(t) == 2 and t[0].isnumeric() and not t[1].isnumeric():
                 continue
             else:
-                print("invalid term: " + t[0] + ' ' + t[1])
+                print("invalid term: " + term)
                 return False
     return True
 
@@ -131,14 +132,13 @@ def check_marlea_file(MARlea_input_filename):
         return
 
     reader = csv.reader(f_MARlea_input, "excel")
-    counter= 0
     for row in reader:
         if len(row) < 1:
             continue
         elif row[1] == "" or row[0] == "":
             continue
         elif row[1].strip().isnumeric():
-            if row[0].strip().isnumeric():
+            if row[0].strip().isnumeric() or (not MARLEA_ARROW in row[0] and MARLEA_TERM_SEPARATOR in row[0]):
                 print("Invalid row: ", row)
                 return
             elif len(row[0].strip().split()) < 2:
@@ -147,7 +147,7 @@ def check_marlea_file(MARlea_input_filename):
             if not check_marlea_line(row):
                 return
     f_MARlea_input.close()
-    print("success")
+    print("Success")
 
 main_parser = argparse.ArgumentParser(prog="error_checker.py", add_help=True)
 subparsers = main_parser.add_subparsers(dest="command")
@@ -162,8 +162,6 @@ aleae_files = parsed_args.aleae
 marlea_file = parsed_args.marlea
 
 if aleae_files is not None:
-    print(aleae_files)
     check_aleae_files(aleae_files[0], aleae_files[1])
 elif marlea_file is not None:
-    print(marlea_file)
     check_marlea_file(marlea_file)
