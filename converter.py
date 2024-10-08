@@ -11,6 +11,7 @@ please send an issue on the GitHub repo or push a fix of the code on a separate 
 """
 import argparse
 import os.path
+import os
 import sys
 import csv
 from enum import IntEnum
@@ -336,7 +337,28 @@ def scan_args():
     m_to_a_parser.add_argument("--waste", action='store', required=False)
     m_to_a_parser.add_argument("--aether", action='store', nargs='*')
 
+    error_parser = subparsers.add_parser("check")
+    error_parser.add_argument("-a", "--aleae", action='store', nargs=2)
+    error_parser.add_argument("-m", "--marlea", action='store')
+
     parsed_args = main_parser.parse_args(sys.argv[1:])
+    input_mode = parsed_args.command
+
+    aleae_files = parsed_args.aleae
+    marlea_file = parsed_args.marlea
+
+    if input_mode == "check":
+        if not os.path.isfile("error_checker.py"):
+            print("Error checker script not found. Is it named 'error_checker.py' "
+                  + "and in the same directory as converter.py?")
+            return
+        elif aleae_files is not None:
+            os.system("python error_checker.py check -a" + " " + aleae_files[0] + ' ' + aleae_files[1])
+            return
+        elif marlea_file is not None:
+            print(marlea_file)
+            os.system("python error_checker.py check -m" + " " + marlea_file)
+            return
 
     if parsed_args.waste is not None:
         waste_local = parsed_args.waste
@@ -344,16 +366,15 @@ def scan_args():
     if parsed_args.aether is not None:
         aether_local = parsed_args.aether
 
-    input_mode = parsed_args.command
     input_files = parsed_args.input
     pipeline_enabled = parsed_args.pipeline_enable
     output_files = parsed_args.output
 
     if input_mode == "a-to-m":
-        if ".in" in input_files[0] or ".r" in input_files[1]:
+        if ".in" in input_files[0] and ".r" in input_files[1]:
             aleae_in_filename = input_files[0]
             aleae_r_filename = input_files[1]
-        elif ".in" in input_files[1] or ".r" in input_files[0]:
+        elif ".in" in input_files[1] and ".r" in input_files[0]:
             aleae_in_filename = input_files[1]
             aleae_r_filename = input_files[0]
         else:
@@ -385,8 +406,6 @@ def scan_args():
             read_aleae_r_file(aleae_r_filename)
             aleae_to_marlea_converter(waste_local, aether_local)
             write_marlea_file(marlea_filename)
-
-
     elif input_mode == "m-to-a":
         if ".in" in output_files[0] or ".r" in output_files[1]:
             aleae_in_filename = output_files[0]
@@ -404,20 +423,20 @@ def scan_args():
             exit(-1)
 
         if pipeline_enabled:
-                reader_thread = Thread(None, read_marlea_file, None, [marlea_filename, ])
-                converter_thread = Thread(None, marlea_to_aleae_converter, None, [waste_local, aether_local, ])
-                writer_thread_in = Thread(None, write_aleae_in_file, None, [aleae_in_filename, ])
-                writer_thread_r = Thread(None, write_aleae_r_file, None, [aleae_r_filename, ])
+            reader_thread = Thread(None, read_marlea_file, None, [marlea_filename, ])
+            converter_thread = Thread(None, marlea_to_aleae_converter, None, [waste_local, aether_local, ])
+            writer_thread_in = Thread(None, write_aleae_in_file, None, [aleae_in_filename, ])
+            writer_thread_r = Thread(None, write_aleae_r_file, None, [aleae_r_filename, ])
 
-                reader_thread.start()
-                converter_thread.start()
-                writer_thread_in.start()
-                writer_thread_r.start()
+            reader_thread.start()
+            converter_thread.start()
+            writer_thread_in.start()
+            writer_thread_r.start()
 
-                reader_thread.join()
-                converter_thread.join()
-                writer_thread_in.join()
-                writer_thread_r.join()
+            reader_thread.join()
+            converter_thread.join()
+            writer_thread_in.join()
+            writer_thread_r.join()
         else:
             read_marlea_file(marlea_filename)
             marlea_to_aleae_converter(waste_local, aether_local)
