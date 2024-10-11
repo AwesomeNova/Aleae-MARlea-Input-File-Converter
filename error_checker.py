@@ -38,7 +38,7 @@ def check_aleae_in_line(temp_line):
 
 def check_aleae_r_line(temp_line, chems):
     if len(temp_line) != 3:
-        print("Need three fields: ", temp_line)
+        print("Aleae reactions need three fields: ", temp_line)
         return False
     if not temp_line[2].strip().isnumeric():
         print("Rate must be a number: ", temp_line[2].strip())
@@ -54,7 +54,7 @@ def check_aleae_r_line(temp_line, chems):
                 print("invalid term: " + temp_field[j] + " " + temp_field[j + 1])
                 return False
             elif temp_field[j].strip() not in chems:
-                print("chem in reaction is not initialized: ", temp_field[j])
+                print("Chem in Aleae reaction is not initialized: ", temp_field[j])
                 return False
     return True
 
@@ -64,16 +64,20 @@ def check_aleae_files(aleae_in_filename, aleae_r_filename):
     if f_init is None:
         return
 
-    temp = f_init.readline()
+    line_counter = 1
     chems = set()
+    temp = f_init.readline()
     while temp != "":
         temp_line = temp.strip().split()
         if len(temp_line) < 1:
             temp = f_init.readline()
+            line_counter += 1
             continue
         if not check_aleae_in_line(temp_line):
+            print("Syntax error at line", line_counter, "in", aleae_in_filename + ": ", temp)
             return
 
+        line_counter += 1
         chems.add(temp_line[0])
         temp = f_init.readline()
     f_init.close()
@@ -82,48 +86,104 @@ def check_aleae_files(aleae_in_filename, aleae_r_filename):
     if f_react is None:
         return
 
+    line_counter = 1
     temp = f_react.readline()
     while temp != "":
         temp_line = temp.strip().split(":")
         if len(temp_line) < 1:
+            temp = f_react.readline()
+            line_counter += 1
             continue
-        if not check_aleae_r_line(temp_line, chems):
+        elif not check_aleae_r_line(temp_line, chems):
+            print("Syntax error at line", line_counter, "in", aleae_r_filename + ": ", temp)
             return
+        line_counter += 1
         temp = f_react.readline()
     f_react.close()
 
-    print("Success")
+
+def check_marlea_init(row_in):
+    if "+" in row_in[0].strip() or " " in row_in[0].strip():
+        print("Invalid use of a term separator")
+        return False
+    elif (not row_in[0].strip().isnumeric() and row_in[1].strip().isnumeric()
+          and row_in[0].strip() != "NULL"):
+        if row_in[1].strip() == "0":
+            print("MARlea chemicals cannot be initialized to zero")
+            return False
+        return True
+    print("Initialization statement does not follow MARlea's format")
+    return False
+
+
+def check_marlea_reaction(row_r):
+    terms = ["", ""]
+    if "=>" in row_r[0]:
+        reaction = row_r[0].strip().split("=>")
+
+        if len(reaction) == 2:
+            terms[0]= reaction[0].strip().split("+")
+            terms[1] = reaction[1].strip().split("+")
+        else:
+            print("Reactants and products must be separated by '=>'")
+            return False
+
+        if len(terms[0]) > 1 and "NULL" in set(terms[0]):
+            print("Improper use of the NULL keyword in reaction statement")
+            return False
+        elif len(terms[1]) > 1 and "NULL" in set(terms[1]):
+            print("Improper use of the NULL keyword in reaction statement")
+            return False
+    else:
+        return False
+
+    for i in range(2):
+        for elem in terms[i]:
+            tmp = elem.strip().split()
+            if len(tmp) < 1:
+                print("Misuse of a term separator")
+                return False
+            elif len(terms[i]) > 1 and "NULL" in tmp[0]:
+                print("Improper use of the NULL keyword in MARlea reaction statement")
+                return False
+            elif len(tmp) < 2 and tmp[0].strip().isnumeric():
+                print("Coefficients cannot be in a term without a chemical")
+                return False
+            elif len(tmp) == 2:
+                if tmp[1].strip().isnumeric() or not tmp[0].strip().isnumeric():
+                    print("Coefficients cannot be in a term without a chemical")
+                    return False
+                elif "NULL" in tmp[1].strip() or "NULL" in tmp[0].strip():
+                    print("NULL keywords can only be in either the reactant or product side")
+                    return False
+                elif tmp[0] == '1':
+                    print("Explicit coefficients in MARlea cannot be one")
+                    return False
+            elif len(tmp) > 2:
+                print("Terms can only contain a chemical and its coefficient")
+                return False
+    return True
 
 
 def check_marlea_line(row):
-    temp_fields = row[0].strip().split(MARLEA_ARROW)
-    for i in range(2):
-        if len(temp_fields) > 2:
-            print("Invalid reaction formant: " + temp_fields)
+    if row[0] == "" and row[1] == "":
+        return True
+    elif "//" in row[1]:
+        if row[0] != "":
             return False
-
-        if MARLEA_NULL in temp_fields[i] and MARLEA_TERM_SEPARATOR in temp_fields[i]:
-            print("invalid use of NULL keyword in field: " + temp_fields[i])
+        return True
+    elif "//" in row[0]:
+        if row[1] != "":
             return False
-
-        temp_terms = temp_fields[i].strip().split(MARLEA_TERM_SEPARATOR)
-
-        for term in temp_terms:
-            t = term.strip().split()
-            if len(t) == 1:
-                if t[0].isnumeric():
-                    print("invalid term: " + t[0])
-                    return False
-                continue
-            elif len(t) > 1 and (t[1] == MARLEA_NULL or t[0] == MARLEA_NULL):
-                print("invalid use of NULL keyword: " + t[0] + ' ' + t[1])
-                return False
-            elif len(t) == 2 and t[0].isnumeric() and not t[1].isnumeric():
-                continue
-            else:
-                print("invalid term: " + term)
-                return False
-    return True
+        return True
+    elif not row[1].strip().isnumeric():
+        return False
+    elif "=>" in row[0]:
+        return check_marlea_reaction(row)
+    elif "+" in row[0]:
+        return False
+    else:
+        return check_marlea_init(row)
 
 
 def check_marlea_file(MARlea_input_filename):
@@ -131,23 +191,17 @@ def check_marlea_file(MARlea_input_filename):
     if f_MARlea_input is None:
         return
 
+    line_counter = 1
     reader = csv.reader(f_MARlea_input, "excel")
     for row in reader:
         if len(row) < 1:
+            line_counter += 1
             continue
-        elif row[1] == "" or row[0] == "":
-            continue
-        elif row[1].strip().isnumeric():
-            if row[0].strip().isnumeric() or (not MARLEA_ARROW in row[0] and MARLEA_TERM_SEPARATOR in row[0]):
-                print("Invalid row: ", row)
-                return
-            elif len(row[0].strip().split()) < 2:
-                continue
-        if "//" not in row[1] and "//" not in row[0] and MARLEA_ARROW in row[0]:
-            if not check_marlea_line(row):
-                return
+        elif not check_marlea_line(row):
+            print("Syntax error at line", line_counter, "in", MARlea_input_filename + ":", row)
+            return
+        line_counter += 1
     f_MARlea_input.close()
-    print("Success")
 
 main_parser = argparse.ArgumentParser(prog="error_checker.py", add_help=True)
 subparsers = main_parser.add_subparsers(dest="command")
@@ -165,3 +219,4 @@ if aleae_files is not None:
     check_aleae_files(aleae_files[0], aleae_files[1])
 elif marlea_file is not None:
     check_marlea_file(marlea_file)
+

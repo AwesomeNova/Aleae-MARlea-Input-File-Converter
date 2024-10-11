@@ -17,6 +17,7 @@ import csv
 from enum import IntEnum
 from queue import Queue
 from threading import Thread
+import multiprocessing
 
 ALEAE_FIELD_SEPARATOR = ':'
 MARLEA_TERM_SEPARATOR = '+'
@@ -307,6 +308,20 @@ def write_aleae_r_file(aleae_r_filename):
     f_aleae_output_r.close()
 
 
+def run_error_checking(aleae_files, marlea_file):
+    if not os.path.isfile("error_checker.py"):
+        print("Error checker script not found. Is it named 'error_checker.py' "
+              + "and in the same directory as converter.py?")
+        return
+    elif aleae_files is not None:
+        os.system("python error_checker.py check -a" + " " + aleae_files[0] + ' ' + aleae_files[1])
+        return
+    elif marlea_file is not None:
+        print(marlea_file)
+        os.system("python error_checker.py check -m" + " " + marlea_file)
+        return
+
+
 def scan_args():
     """
     The function interprets the command-line input and parses it for any information needed to start converting input
@@ -344,21 +359,17 @@ def scan_args():
     parsed_args = main_parser.parse_args(sys.argv[1:])
     input_mode = parsed_args.command
 
-    aleae_files = parsed_args.aleae
-    marlea_file = parsed_args.marlea
-
     if input_mode == "check":
-        if not os.path.isfile("error_checker.py"):
-            print("Error checker script not found. Is it named 'error_checker.py' "
-                  + "and in the same directory as converter.py?")
-            return
-        elif aleae_files is not None:
-            os.system("python error_checker.py check -a" + " " + aleae_files[0] + ' ' + aleae_files[1])
-            return
-        elif marlea_file is not None:
-            print(marlea_file)
-            os.system("python error_checker.py check -m" + " " + marlea_file)
-            return
+        aleae_files = parsed_args.aleae
+        marlea_file = parsed_args.marlea
+        if __name__ == '__main__':
+            arr = multiprocessing.Array(tuple, )
+            multiprocessing.set_start_method('spawn')
+            p = multiprocessing.Process(target=run_error_checking, args=[aleae_files, marlea_file, ])
+            p.start()
+            p.join()
+            print("I didn't do anything.")
+        return
 
     if parsed_args.waste is not None:
         waste_local = parsed_args.waste
