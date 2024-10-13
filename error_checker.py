@@ -21,7 +21,7 @@ def open_file_read(filename):
 
 def check_aleae_in_line(temp_line):
     threshold_sym = {"LE", "LT", "GE", "GT", "N"}
-    if len(temp_line) != 3:
+    if len(temp_line) > 4:
         print(".in line not three elements: ", temp_line)
         return False
     elif temp_line[0].strip().isnumeric():
@@ -33,6 +33,13 @@ def check_aleae_in_line(temp_line):
     elif temp_line[2] not in threshold_sym:
         print("Invalid threshold: ", temp_line)
         return False
+    elif len(temp_line) > 3:
+        if temp_line[2] == "N":
+            print("Threshold values not allowed for symbol 'N': ", temp_line)
+            return False
+        elif temp_line[2] in threshold_sym and not temp_line[3].strip().isnumeric():
+            print("Invalid threshold value: ", temp_line)
+            return False
     return True
 
 
@@ -68,7 +75,7 @@ def check_aleae_files(aleae_in_filename, aleae_r_filename):
     chems = set()
     temp = f_init.readline()
     while temp != "":
-        temp_line = temp.strip().split()
+        temp_line = temp.strip().strip(ALEAE_FIELD_SEPARATOR)
         if len(temp_line) < 1:
             temp = f_init.readline()
             line_counter += 1
@@ -89,7 +96,7 @@ def check_aleae_files(aleae_in_filename, aleae_r_filename):
     line_counter = 1
     temp = f_react.readline()
     while temp != "":
-        temp_line = temp.strip().split(":")
+        temp_line = temp.strip().split(ALEAE_FIELD_SEPARATOR)
         if len(temp_line) < 1:
             temp = f_react.readline()
             line_counter += 1
@@ -107,7 +114,7 @@ def check_marlea_init(row_in):
         print("Invalid use of a term separator")
         return False
     elif (not row_in[0].strip().isnumeric() and row_in[1].strip().isnumeric()
-          and row_in[0].strip() != "NULL"):
+          and row_in[0].strip() != MARLEA_NULL):
         if row_in[1].strip() == "0":
             print("MARlea chemicals cannot be initialized to zero")
             return False
@@ -122,8 +129,8 @@ def check_marlea_reaction(row_r):
         reaction = row_r[0].strip().split("=>")
 
         if len(reaction) == 2:
-            terms[0]= reaction[0].strip().split("+")
-            terms[1] = reaction[1].strip().split("+")
+            terms[0]= reaction[0].strip().split(MARLEA_TERM_SEPARATOR)
+            terms[1] = reaction[1].strip().split(MARLEA_TERM_SEPARATOR)
         else:
             print("Reactants and products must be separated by '=>'")
             return False
@@ -143,7 +150,7 @@ def check_marlea_reaction(row_r):
             if len(tmp) < 1:
                 print("Misuse of a term separator")
                 return False
-            elif len(terms[i]) > 1 and "NULL" in tmp[0]:
+            elif len(terms[i]) > 1 and MARLEA_NULL in tmp[0]:
                 print("Improper use of the NULL keyword in MARlea reaction statement")
                 return False
             elif len(tmp) < 2 and tmp[0].strip().isnumeric():
@@ -153,7 +160,7 @@ def check_marlea_reaction(row_r):
                 if tmp[1].strip().isnumeric() or not tmp[0].strip().isnumeric():
                     print("Coefficients cannot be in a term without a chemical")
                     return False
-                elif "NULL" in tmp[1].strip() or "NULL" in tmp[0].strip():
+                elif "NULL" in tmp[1].strip() or MARLEA_NULL in tmp[0].strip():
                     print("NULL keywords can only be in either the reactant or product side")
                     return False
                 elif tmp[0] == '1':
@@ -178,9 +185,9 @@ def check_marlea_line(row):
         return True
     elif not row[1].strip().isnumeric():
         return False
-    elif "=>" in row[0]:
+    elif MARLEA_ARROW in row[0]:
         return check_marlea_reaction(row)
-    elif "+" in row[0]:
+    elif MARLEA_TERM_SEPARATOR in row[0]:
         return False
     else:
         return check_marlea_init(row)
@@ -212,11 +219,10 @@ error_parser.add_argument("-m", "--marlea", action='store')
 
 parsed_args = main_parser.parse_args(sys.argv[1:])
 
-aleae_files = parsed_args.aleae
-marlea_file = parsed_args.marlea
-
-if aleae_files is not None:
-    check_aleae_files(aleae_files[0], aleae_files[1])
-elif marlea_file is not None:
-    check_marlea_file(marlea_file)
+if parsed_args.aleae is not None:
+    input_files = parsed_args.aleae
+    check_aleae_files(input_files[0], input_files[1])
+elif parsed_args.marlea is not None:
+    input_files = parsed_args.marlea
+    check_marlea_file(input_files)
 
