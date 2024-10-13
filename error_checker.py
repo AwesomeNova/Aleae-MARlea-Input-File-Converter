@@ -75,7 +75,7 @@ def check_aleae_files(aleae_in_filename, aleae_r_filename):
     chems = set()
     temp = f_init.readline()
     while temp != "":
-        temp_line = temp.strip().strip(ALEAE_FIELD_SEPARATOR)
+        temp_line = temp.strip().split()
         if len(temp_line) < 1:
             temp = f_init.readline()
             line_counter += 1
