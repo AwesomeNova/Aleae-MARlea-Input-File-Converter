@@ -133,6 +133,7 @@ def check_aleae_files(aleae_in_filename, aleae_r_filename):
             line_counter += 1
             continue
         if not check_aleae_in_line(temp_line):
+            f_init.close()
             print("Syntax error at line", line_counter, "in", aleae_in_filename + ": ", temp.strip('\n'))
             return False
 
@@ -155,6 +156,7 @@ def check_aleae_files(aleae_in_filename, aleae_r_filename):
             line_counter += 1
             continue
         elif not check_aleae_r_line(temp_line, chems):
+            f_react.close()
             print("Syntax error at line", line_counter, "in", aleae_r_filename + ": ", temp.strip('\n'))
             return False
         line_counter += 1
@@ -261,6 +263,7 @@ def check_marlea_file(MARlea_input_filename):
             line_counter += 1
             continue
         elif not check_marlea_line(row):
+            f_MARlea_input.close()
             print("Syntax error at line", line_counter, "in", MARlea_input_filename + ":", row)
             return False
         line_counter += 1
@@ -513,17 +516,11 @@ def run_error_checking(aleae_in_file, aleae_r_file, marlea_file):
     if not os.path.isfile("error_checker.py"):
         print("Error checker script not found. Is it named 'error_checker.py' "
               + "and in the same directory as converter.py?")
-        # Errors_found_value.value = 0
         return False
     elif aleae_in_file is not None and aleae_r_file is not None:
         return check_aleae_files(aleae_in_file, aleae_r_file)
-        # os.system("python error_checker.py check -a" + " " + aleae_in_file + ' ' + aleae_r_file)
-        # Errors_found_value.value = 0
     elif marlea_file is not None:
         return check_marlea_file(marlea_file)
-        # os.system("python error_checker.py check -m" + " " + marlea_file)
-        # Errors_found_value.value = 0
-    # Errors_found_value.value = 1
     exit(0)
 
 
@@ -608,17 +605,6 @@ def scan_args():
         if error_check_enable:
             if not check_aleae_files(aleae_in_filename, aleae_r_filename):
                 return
-
-            # if __name__ == '__main__':
-                # arr = multiprocessing.Array(tuple, )
-                # multiprocessing.set_start_method('spawn')
-                # p = multiprocessing.Process(target=run_error_checking, args=[aleae_in_filename, aleae_r_filename, None, ])
-                # p.start()
-                # Errors_found_value.value = 0
-                # p.join()
-                # if Errors_found_value == 1:
-                #     print("Aborting file conversion process.")
-                #     return
             print("No errors were found. Beginning file conversion.")
 
         if pipeline_enabled:
@@ -660,12 +646,6 @@ def scan_args():
         if error_check_enable:
             if not check_marlea_file(marlea_filename):
                 return
-            # if __name__ == '__main__':
-                # arr = multiprocessing.Array(tuple, )
-                # multiprocessing.set_start_method('spawn')
-                # p = multiprocessing.Process(target=run_error_checking, args=[None, marlea_file, ])
-                # p.start()
-                # p.join()
             print("No errors were found. Beginning file conversion.")
 
         if pipeline_enabled:
