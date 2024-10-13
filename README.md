@@ -47,13 +47,14 @@ To operate the script, commands are entered into the terminal in this format:
 
 ### Optional Flags
 * [--pipelined_enable], -p: enables pipelined execution
+* [--error_check_enable], -e: enables pre-conversion error checking
 * [--waste]: denotes from what chemical to convert to NULL and vice versa
 * [--aether]: denotes from what chemical(s) to convert to NULL and vice versa
 
 ### Example Commands
 ```python converter.py a-to-m -i init.in react.r -o MARlea_crn.csv --waste W --aether S.1 S.2 S.3```
 
-```python converter.py m_to_a -i MARlea_crn.csv -p -o init.in react.r --waste garbo --aether S.1```
+```python converter.py m_to_a -i MARlea_crn.csv -p -e -o init.in react.r --waste garbo --aether S.1```
 
 ## Changelog
 * May 15, 2024
@@ -69,7 +70,7 @@ To operate the script, commands are entered into the terminal in this format:
     * Lightly simplified logic pertaining to adding aether term to chem_reaction_str
 * October 3, 2024
   * 1.0.4: 
-    * Fixed MARlea comments occassionally being written to .in files when converting MARlea files or Aleae files
+    * Fixed MARlea comments occasionally being written to .in files when converting MARlea files or Aleae files
   * 1.0.5:
     * Fixed error in the condition for the while loop in convert_aleae_to_marlea()
     * Removed redundant functions that open files for reading and replaced them with one function open_file_read()
@@ -82,9 +83,12 @@ To operate the script, commands are entered into the terminal in this format:
   * 1.1.1:
     * Rewrote command-line parsing using the argparse Python library
     * Altered commands to accommodate change in command-line parsing
-    * Fixed a NoneType indexing attempt bug in the MARlea-to-Aleae converter when no aether chemical is not specified 
+    * Fixed a NoneType indexing attempt bug in the MARlea-to-Aleae converter when no aether chemical is specified
+* October 12, 2024
+  * 1.2: 
+    * Added optional pre-conversion error checking to converter.py 
+    * Added error checking script with the same code used in converter.py
 
 ## Potential Feature(s) to Be Added
-* Error checking of all input files before beginning file conversion process
 * A GUI to enter the parameters in, loading in when no commands are given
-* Support for converting non-csv input MARlea files into Aleae output files
+* Support for converting non-csv input MARlea files into Aleae output files (if new files types are supported in MARlea)
