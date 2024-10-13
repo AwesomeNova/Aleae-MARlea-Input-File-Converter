@@ -1,3 +1,17 @@
+"""
+Name: AwesomeNova
+Updated at: 10/12/2024
+
+Script for checking Aleae or MARlea files the functions contained in this file are also in converter.py. This file may
+become deprecated or be moved to a separate repo.
+
+This is the template for all command-line inputs to the script:
+'python error_checker.py check <--input type flag> <input file(s)>'
+
+There are no major bugs found in the code at the moment. However, if you encountered a bug or issue while using this script,
+please send an issue on the GitHub repo or push a fix of the code on a separate branch and make a pull request.
+"""
+
 import argparse
 import csv
 import os
