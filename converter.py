@@ -607,6 +607,9 @@ def scan_args():
             elif proceed.strip().lower() != "n":
                 print("Invalid keyboard input.")
 
+        if proceed.strip().lower() == "y":
+            error_check_enable = True
+
 
     if parsed_args.waste is not None:
         waste_local = parsed_args.waste
