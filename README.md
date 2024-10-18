@@ -40,6 +40,7 @@ To operate the script, commands are entered into the terminal in this format:
 ### Commands
 * a-to-m: convert Aleae files into a MARlea file
 * m-to-a: convert MARlea file to Aleae files
+* gui: summon the gui
 
 ### Required Flags
 * --input, -i: precedes input file name(s)
@@ -55,6 +56,8 @@ To operate the script, commands are entered into the terminal in this format:
 ```python converter.py a-to-m -i init.in react.r -o MARlea_crn.csv --waste W --aether S.1 S.2 S.3```
 
 ```python converter.py m_to_a -i MARlea_crn.csv -p -e -o init.in react.r --waste garbo --aether S.1```
+
+```python converter.py gui```
 
 ## Changelog
 * May 15, 2024
@@ -88,7 +91,9 @@ To operate the script, commands are entered into the terminal in this format:
   * 1.2: 
     * Added optional pre-conversion error checking to converter.py 
     * Added error checking script with the same code used in converter.py
+* October 18, 2024
+  * 1.3:
+    * Implemented the gui that is summoned with a command
 
 ## Potential Feature(s) to Be Added
-* A GUI to enter the parameters in, loading in when no commands are given
 * Support for converting non-csv input MARlea files into Aleae output files (if new files types are supported in MARlea)

@@ -1,6 +1,6 @@
 """
 Name: AwesomeNova
-Updated at: 10/12/2024
+Updated at: 10/18/2024
 
 Script for converting Aleae files into MARlea ones and vice versa via sequential or pipelined execution. Please read the
 README to learn how to use it. The script checks for whether an input file given to it is valid, specified by the
@@ -16,9 +16,10 @@ import os
 import sys
 import csv
 import queue
+import tkinter
 from enum import IntEnum
 from threading import Thread
-
+from tkinter import Tk, ttk, StringVar, BooleanVar, filedialog, messagebox
 
 ALEAE_FIELD_SEPARATOR = ':'
 MARLEA_TERM_SEPARATOR = '+'
@@ -38,6 +39,220 @@ class ReactionParts(IntEnum):
     PRODUCTS = 1
     REACTION_RATE = 2
     NUM_FIELDS = 3
+
+
+gui_root = Tk()                                                        # Set up the gui
+gui_root.title("Aleae-MARlea File Converter")
+gui_root.minsize(500, 300)
+button_frame = ttk.Frame(gui_root, padding="8 8 12 12")
+file_frame = ttk.Frame(gui_root, padding="8 8 12 12")
+waste_aether_frame = ttk.Frame(gui_root, padding="8 8 12 12")
+conversion_button_frame = ttk.Frame(gui_root, padding="8 8 12 12")
+button_frame.grid(column=0, row=0, sticky=(tkinter.N, tkinter.W, tkinter.E, tkinter.S))
+file_frame.grid(column=1, row=0)
+waste_aether_frame.grid(column=0, row=1)
+conversion_button_frame.grid(column= 1, row=1)
+gui_root.columnconfigure(0, weight=1)
+gui_root.columnconfigure(1, weight=1)
+gui_root.columnconfigure(2, weight=1)
+gui_root.rowconfigure(list(range(10)), weight=1)
+
+radio_button_label = ttk.Label(button_frame, text="Conversion mode select:")
+radio_button_label.grid(column=0, row=0, sticky=tkinter.W)
+flag_label = ttk.Label(button_frame, text="Select enable flags:")
+flag_label.grid(column=0, row=4, sticky=tkinter.W)
+
+input_label = ttk.Label(file_frame, text="Input Files")
+output_label = ttk.Label(file_frame, text="Output Files")
+selected_input_in_file_label = ttk.Label(file_frame, text="Selected File:")
+selected_input_r_file_label = ttk.Label(file_frame, text="Selected File:")
+selected_input_marlea_file_label = ttk.Label(file_frame, text="Selected File:")
+selected_output_in_file_label = ttk.Label(file_frame, text="Selected File:")
+selected_output_r_file_label = ttk.Label(file_frame, text="Selected File:")
+selected_output_marlea_file_label = ttk.Label(file_frame, text="Selected File:")
+
+waste_aether_label = ttk.Label(waste_aether_frame, text="Enter waste and aether chemicals \n(Separate aether chemicals by whitespace)")
+waste_label = ttk.Label(waste_aether_frame, text="Waste:")
+aether_label = ttk.Label(waste_aether_frame, text="Aether:")
+
+gui_input_mode = StringVar()
+
+gui_a_to_m_aleae_file_in = ""                                           # Initialize gui file variables
+gui_a_to_m_aleae_file_r = ""
+gui_a_to_m_marlea_file = ""
+
+gui_m_to_a_marlea_file = ""
+gui_m_to_a_aleae_file_in = ""
+gui_m_to_a_aleae_file_r = ""
+
+gui_error_check_enable=BooleanVar()
+gui_pipeline_enable=BooleanVar()
+
+gui_waste=StringVar()
+gui_aether=StringVar()
+
+
+def open_file_dialog_in():
+    """Prompt the user with an open file dialog and set the .in file variable to user input."""
+    global gui_a_to_m_aleae_file_in
+    gui_a_to_m_aleae_file_in = filedialog.askopenfilename(title="Select a File", filetypes=[("Aleae initialization files", "*.in")])
+    if gui_a_to_m_aleae_file_in:
+        selected_input_in_file_label.config(text=f"Selected File: {gui_a_to_m_aleae_file_in}")
+
+def open_file_dialog_r():
+    """Prompt the user with an open file dialog and set the .r file variable to user input."""
+    global gui_a_to_m_aleae_file_r
+    gui_a_to_m_aleae_file_r = filedialog.askopenfilename(title="Select a File", filetypes=[("Aleae reaction files", "*.r")])
+    if gui_a_to_m_aleae_file_r:
+        selected_input_r_file_label.config(text=f"Selected File: {gui_a_to_m_aleae_file_r}")
+
+def open_file_dialog_csv():
+    """Prompt the user with a open file dialog and set the .csv file variable to user input."""
+    global gui_m_to_a_marlea_file
+    gui_m_to_a_marlea_file = filedialog.askopenfilename(title="Select a File", filetypes=[("MARlea files", "*.csv")])
+    if gui_m_to_a_marlea_file:
+        selected_input_marlea_file_label.config(text=f"Selected File: {gui_m_to_a_marlea_file}")
+
+
+def save_file_dialog_in():
+    """Prompt the user with a save file dialog and set the .in file variable for output."""
+    global gui_m_to_a_aleae_file_in
+    gui_m_to_a_aleae_file_in = filedialog.asksaveasfilename(title="Select a File", filetypes=[("Aleae initialization files", "*.in")])
+    if gui_m_to_a_aleae_file_in:
+        selected_output_in_file_label.config(text=f"Selected File: {gui_m_to_a_aleae_file_in}")
+
+def save_file_dialog_r():
+    """Prompt the user with an save file dialog and set the .r file variable for output."""
+    global gui_m_to_a_aleae_file_r
+    gui_m_to_a_aleae_file_r = filedialog.asksaveasfilename(title="Select a File", filetypes=[("Aleae reaction files", "*.r")])
+    if gui_m_to_a_aleae_file_r:
+        selected_output_r_file_label.config(text=f"Selected File: {gui_m_to_a_aleae_file_r}")
+
+def save_file_dialog_csv():
+    """Prompt the user with a save file dialog and set the .csv file variable for output."""
+    global gui_a_to_m_marlea_file
+    gui_a_to_m_marlea_file = filedialog.asksaveasfilename(title="Select a File", filetypes=[("MARlea files", "*.csv")])
+    if gui_a_to_m_marlea_file:
+        selected_output_marlea_file_label.config(text=f"Selected File: {gui_a_to_m_marlea_file}")
+
+
+a_to_m_in_buttons = ttk.Button(file_frame, text="Open File", command=open_file_dialog_in)
+a_to_m_r_buttons = ttk.Button(file_frame, text="Open File", command=open_file_dialog_r)
+a_to_m_out_btn = ttk.Button(file_frame, text="Create File", command=save_file_dialog_csv)
+
+m_to_a_buttons = ttk.Button(file_frame, text="Open File", command=open_file_dialog_csv)
+m_to_a_in_out_btn = ttk.Button(file_frame, text="Create File", command=save_file_dialog_in)
+m_to_a_r_out_btn = ttk.Button(file_frame, text="Create File", command=save_file_dialog_r)
+
+
+def aleae_to_marlea_btns():
+    """Setup and change buttons when a-to-m mode is set."""
+    selected_input_marlea_file_label.grid_remove()
+    selected_output_in_file_label.grid_remove()
+    selected_output_r_file_label.grid_remove()
+    m_to_a_buttons.grid_remove()
+    m_to_a_r_out_btn.grid_remove()
+    m_to_a_in_out_btn.grid_remove()
+
+    input_label.grid(column=1, row=0, sticky=tkinter.S)
+    selected_input_in_file_label.grid(column=1, row=1, sticky=tkinter.W)
+    selected_input_r_file_label.grid(column=1, row=2, sticky=tkinter.W)
+    output_label.grid(column=1, row=3, sticky=tkinter.S)
+
+    selected_output_marlea_file_label.grid(column=1, row=4, sticky=tkinter.W)
+    a_to_m_in_buttons.grid(column=0, row=1, sticky=tkinter.E)
+    a_to_m_r_buttons.grid(column=0, row=2, sticky=tkinter.E)
+    a_to_m_out_btn.grid(column=0, row=4, sticky=tkinter.N)
+
+
+def marlea_to_aleae_btns():
+    """Setup and change buttons when m-to-a mode is set."""
+    a_to_m_in_buttons.grid_remove()
+    a_to_m_r_buttons.grid_remove()
+    a_to_m_out_btn.grid_remove()
+    selected_input_in_file_label.grid_remove()
+    selected_input_r_file_label.grid_remove()
+    selected_output_marlea_file_label.grid_remove()
+
+    input_label.grid(column=1, row=0, sticky=tkinter.S)
+    selected_input_marlea_file_label.grid(column=1, row=1, sticky=tkinter.W)
+    output_label.grid(column=1, row=2, sticky=tkinter.S)
+
+    selected_output_in_file_label.grid(column=1, row=3, sticky=tkinter.W)
+    selected_output_r_file_label.grid(column=1, row=4, sticky=tkinter.W)
+    m_to_a_buttons.grid(column=0, row=1, sticky=tkinter.E)
+    m_to_a_in_out_btn.grid(column=0, row=3, sticky=tkinter.N)
+    m_to_a_r_out_btn.grid(column=0, row=4, sticky=tkinter.N)
+
+
+# Set up the buttons and checkboxes for the gui
+a_to_m_check = ttk.Radiobutton(button_frame, text='Aleae to MARlea', variable=gui_input_mode, value='a-to-m', command=aleae_to_marlea_btns)
+m_to_a_check = ttk.Radiobutton(button_frame, text='MARlea to Aleae', variable=gui_input_mode, value='m-to-a', command=marlea_to_aleae_btns)
+a_to_m_check.grid(column=0, row=1, sticky=tkinter.SW)
+m_to_a_check.grid(column=0, row=2, sticky=tkinter.SW)
+
+error_check_widget = ttk.Checkbutton(button_frame, text="Enable error checking", variable=gui_error_check_enable, onvalue=True, offvalue=False)
+pipeline_widget = ttk.Checkbutton(button_frame, text="Enable pipelined execution", variable=gui_pipeline_enable, onvalue=True, offvalue=False)
+error_check_widget.grid(column=0, row=5, sticky=tkinter.SW)
+pipeline_widget.grid(column=0, row=6, sticky=tkinter.SW)
+
+waste_aether_label.grid(column=2, row=0)
+waste_entry = ttk.Entry(waste_aether_frame, textvariable=gui_waste)
+waste_entry.grid(column=2, row=1, sticky=tkinter.NW)
+waste_label.grid(column=1, row=1, sticky=tkinter.E)
+aether_entry = ttk.Entry(waste_aether_frame, textvariable=gui_aether)
+aether_label.grid(column=1, row=2, sticky=tkinter.E)
+aether_entry.grid(column=2, row=2, sticky=tkinter.NW)
+
+
+def gui_start_conversion():
+    """The entry point for gui execution. """
+    if gui_input_mode.get() == "":
+        return
+
+    if "," in gui_aether.get() or "//" in gui_aether.get():
+        messagebox.showerror(title="Invalid aether terms", message="Please enter aether terms as instructed.")
+        return
+    elif len(gui_waste.get().split()) != 1 or "," in gui_waste.get() or "//" in gui_waste.get():
+        messagebox.showerror(title="Invalid waste term", message="Please enter only one waste term. No commas or '//' strings.")
+        return
+
+    if not gui_error_check_enable.get():
+       messagebox.askyesno(message='Error checking was not enabled. Any errors in your input files will cause unintended results.\nProceed with error checking enabled?',
+        icon = 'warning',
+        title = 'Warning', )
+
+    if gui_input_mode.get() == "a-to-m":
+        global gui_a_to_m_aleae_file_in
+        global gui_a_to_m_aleae_file_r
+
+
+        if gui_a_to_m_aleae_file_in == "" or gui_a_to_m_aleae_file_r == "" or gui_a_to_m_marlea_file == "":
+            messagebox.showerror(title="Missing files", message="All files need to be entered.")
+            return
+        else:
+            if gui_error_check_enable.get():
+                check_aleae_files(gui_a_to_m_aleae_file_in, gui_a_to_m_aleae_file_r)
+            start_a_to_m_conversion(gui_a_to_m_aleae_file_in, gui_a_to_m_aleae_file_r, gui_a_to_m_marlea_file,
+                                    gui_waste.get(), gui_aether.get(), gui_pipeline_enable.get())
+    elif gui_input_mode.get() == "m-to-a":
+        global gui_m_to_a_marlea_file
+
+        if gui_m_to_a_marlea_file == "" or gui_m_to_a_aleae_file_in == "" or gui_m_to_a_aleae_file_r == "":
+            messagebox.showerror(title="Missing files", message="All files need to be entered.")
+            return
+        else:
+            if gui_error_check_enable.get():
+                check_marlea_file(gui_m_to_a_marlea_file)
+            start_m_to_a_conversion(gui_m_to_a_aleae_file_in, gui_m_to_a_aleae_file_r, gui_m_to_a_marlea_file,
+                                    gui_waste.get(), gui_aether.get(), gui_pipeline_enable.get())
+
+    messagebox.showinfo(title="Conversion Complete", message="Input files have been converted.")
+    # exit(0)
+
+
+confirm_btn = ttk.Button(gui_root, text="Start Conversion", command=gui_start_conversion)
+confirm_btn.grid(column=1, row=1)
 
 
 def open_file_read(filename):
@@ -560,6 +775,51 @@ def run_error_checking(aleae_in_file, aleae_r_file, marlea_file):
     exit(0)
 
 
+def start_a_to_m_conversion(aleae_in_filename, aleae_r_filename, marlea_filename, waste, aether, pipeline_enabled):
+    if pipeline_enabled:
+        reader_in_thread = Thread(None, read_aleae_in_file, None, [aleae_in_filename, aether, ])
+        reader_r_thread = Thread(None, read_aleae_r_file, None, [aleae_r_filename, ])
+        converter_thread = Thread(None, aleae_to_marlea_converter, None, [waste, aether, ])
+        writer_thread = Thread(None, write_marlea_file, None, [marlea_filename, ])
+
+        reader_in_thread.start()
+        reader_r_thread.start()
+        converter_thread.start()
+        writer_thread.start()
+
+        reader_in_thread.join()
+        reader_r_thread.join()
+        converter_thread.join()
+        writer_thread.join()
+    else:
+        read_aleae_in_file(aleae_in_filename, aether)
+        read_aleae_r_file(aleae_r_filename)
+        aleae_to_marlea_converter(waste, aether)
+        write_marlea_file(marlea_filename)
+
+
+def start_m_to_a_conversion(aleae_in_filename, aleae_r_filename, marlea_filename, waste, aether, pipeline_enabled):
+    if pipeline_enabled:
+        reader_thread = Thread(None, read_marlea_file, None, [marlea_filename, ])
+        converter_thread = Thread(None, marlea_to_aleae_converter, None, [waste, aether, ])
+        writer_thread_in = Thread(None, write_aleae_in_file, None, [aleae_in_filename, ])
+        writer_thread_r = Thread(None, write_aleae_r_file, None, [aleae_r_filename, ])
+
+        reader_thread.start()
+        converter_thread.start()
+        writer_thread_in.start()
+        writer_thread_r.start()
+
+        reader_thread.join()
+        converter_thread.join()
+        writer_thread_in.join()
+        writer_thread_r.join()
+    else:
+        read_marlea_file(marlea_filename)
+        marlea_to_aleae_converter(waste, aether)
+        write_aleae_in_file(aleae_in_filename)
+        write_aleae_r_file(aleae_r_filename)
+
 def scan_args():
     """
     The function interprets the command-line input and parses it for any information needed to start converting input
@@ -571,59 +831,70 @@ def scan_args():
 
     if sys.version_info.major < 3 and sys.version_info.minor < 8:
         print("Version of Python must be 3.8 or higher")
-        return
+        exit(0)
 
     # All the commands and their associated flags
     main_parser = argparse.ArgumentParser(prog="converter.py", add_help=True)
     subparsers = main_parser.add_subparsers(dest="command")
 
-    a_to_m_parser = subparsers.add_parser("a-to-m", usage="convert Aleae files into MARlea files")
-    a_to_m_parser.add_argument("-i", "--input", action='store', nargs=2, required=True, help="input help")
-    a_to_m_parser.add_argument("-p", "--pipeline_enable", action='store_true')
-    a_to_m_parser.add_argument("-e", "--error_check_enable", action='store_true')
-    a_to_m_parser.add_argument("-o", "--output", action='store', required=True)
-    a_to_m_parser.add_argument("--waste", action='store', required=False)
-    a_to_m_parser.add_argument("--aether", action='store', nargs='*')
+    a_to_m_parser = subparsers.add_parser("a-to-m", usage="Convert Aleae files into MARlea files", help="Convert Aleae files to an MARlea equivalent")
+    a_to_m_parser.add_argument("-i", "--input", action='store', nargs=2, required=True, help="Paths to the .in and .r Aleae files")
+    a_to_m_parser.add_argument("-p", "--pipeline_enable", action='store_true', help="Enable pipelined Execution of file conversion")
+    a_to_m_parser.add_argument("-e", "--error_check_enable", action='store_true', help="Enable pre-conversion error checking of Aleae Files")
+    a_to_m_parser.add_argument("-o", "--output", action='store', required=True, help="Path to new or preexisting MARlea file")
+    a_to_m_parser.add_argument("--waste", action='store', required=False, help="A chemical that is the waste products of reactions")
+    a_to_m_parser.add_argument("--aether", action='store', nargs='*', help="A list of chemicals that enable continous production of other chemicals")
 
-    m_to_a_parser = subparsers.add_parser("m-to-a", usage="convert MARlea files into Aleae files")
-    m_to_a_parser.add_argument("-i", "--input", action='store', required=True)
-    m_to_a_parser.add_argument("-p", "--pipeline_enable", action='store_true')
-    m_to_a_parser.add_argument("-e", "--error_check_enable", action='store_true')
-    m_to_a_parser.add_argument("-o", "--output", action='store', nargs=2, required=True)
-    m_to_a_parser.add_argument("--waste", action='store', required=False)
-    m_to_a_parser.add_argument("--aether", action='store', nargs='*')
+    m_to_a_parser = subparsers.add_parser("m-to-a", usage="Convert MARlea files into Aleae files", help="Convert MARlea file to Aleae equivalents")
+    m_to_a_parser.add_argument("-i", "--input", action='store', required=True, help="Paths to .csv MARlea file")
+    m_to_a_parser.add_argument("-p", "--pipeline_enable", action='store_true', help="Enable pipelined Execution of file conversion")
+    m_to_a_parser.add_argument("-e", "--error_check_enable", action='store_true', help="Enable pre-conversion error checking of Aleae Files")
+    m_to_a_parser.add_argument("-o", "--output", action='store', nargs=2, required=True, help="Paths to new or preexisting .in and .r Aleae files")
+    m_to_a_parser.add_argument("--waste", action='store', required=False, help="A chemical that is the waste products of reactions")
+    m_to_a_parser.add_argument("--aether", action='store', nargs='*', help="A list of chemicals that enable continous production of other chemicals")
 
-    parsed_args = main_parser.parse_args(sys.argv[1:])          # Extract some of the arguments from the command-line input
+    gui_parser = subparsers.add_parser("gui", usage="summons the gui", help="Summon the program's graphical user interface")
+    gui_parser.add_argument("-v", "--verbose", action='store_true')
+
+    parsed_args = main_parser.parse_args(sys.argv[1:])  # Extract some of the arguments from the command-line input
     input_mode = parsed_args.command
-    error_check_enable = parsed_args.error_check_enable
 
-    if not error_check_enable:
-        proceed = input("Error checking was not enabled. Any errors in your input files will cause unintended results.\n "
-                        + "Proceed with error checking enabled? (Y/n): ")
-        while proceed.strip().lower() != "y" and proceed.strip().lower() != "n":
-            proceed = input("Invalid input: Proceed with error checking enabled? (Y/n): ")
+    if input_mode is None:
+        print("No commands entered. Closing Program.")
+        exit(0)
+
+    if input_mode == "gui":
+        gui_root.mainloop()
+        exit(0)
+    else:
+        error_check_enable = parsed_args.error_check_enable
+
+        if not error_check_enable:
+            proceed = input("Error checking was not enabled. Any errors in your input files will cause unintended results.\n "
+                            + "Proceed with error checking enabled? (Y/n): ")
+            while proceed.strip().lower() != "y" and proceed.strip().lower() != "n":
+                proceed = input("Invalid input: Proceed with error checking enabled? (Y/n): ")
+                if proceed.strip().lower() == "y":
+                    error_check_enable = True
+                elif proceed.strip().lower() != "n":
+                    print("Invalid keyboard input.")
+
             if proceed.strip().lower() == "y":
                 error_check_enable = True
-            elif proceed.strip().lower() != "n":
-                print("Invalid keyboard input.")
 
-        if proceed.strip().lower() == "y":
-            error_check_enable = True
+        if parsed_args.waste is not None:
+            waste_local = parsed_args.waste
 
+        if parsed_args.aether is not None:
+            aether_local = parsed_args.aether
+            for elem in aether_local:
+                if elem == waste_local:
+                    print("Error: Aether chemical", elem, "is the same as", waste_local)
+                    exit(0)
 
-    if parsed_args.waste is not None:
-        waste_local = parsed_args.waste
-
-    if parsed_args.aether is not None:
-        aether_local = parsed_args.aether
-        for elem in aether_local:
-            if elem == waste_local:
-                print("Error: Aether chemical", elem, "is the same as", waste_local)
-                return
-
-    input_files = parsed_args.input                             # Extract the rest of the command-line input
-    pipeline_enabled = parsed_args.pipeline_enable
-    output_files = parsed_args.output
+        input_files = parsed_args.input                             # Extract the rest of the command-line input
+        pipeline_enabled = parsed_args.pipeline_enable
+        output_files = parsed_args.output
 
     if input_mode == "a-to-m":
         if ".in" in input_files[0] and ".r" in input_files[1]:
@@ -643,29 +914,11 @@ def scan_args():
 
         if error_check_enable:
             if not check_aleae_files(aleae_in_filename, aleae_r_filename):
-                return
+                exit(0)
             print("No errors were found. Beginning file conversion.")
 
-        if pipeline_enabled:
-            reader_in_thread = Thread(None, read_aleae_in_file, None, [aleae_in_filename, aether_local, ])
-            reader_r_thread = Thread(None, read_aleae_r_file, None, [aleae_r_filename, ])
-            converter_thread = Thread(None, aleae_to_marlea_converter, None, [waste_local, aether_local, ])
-            writer_thread = Thread(None, write_marlea_file, None, [marlea_filename, ])
-
-            reader_in_thread.start()
-            reader_r_thread.start()
-            converter_thread.start()
-            writer_thread.start()
-
-            reader_in_thread.join()
-            reader_r_thread.join()
-            converter_thread.join()
-            writer_thread.join()
-        else:
-            read_aleae_in_file(aleae_in_filename, aether_local)
-            read_aleae_r_file(aleae_r_filename)
-            aleae_to_marlea_converter(waste_local, aether_local)
-            write_marlea_file(marlea_filename)
+        start_a_to_m_conversion(aleae_in_filename, aleae_r_filename, marlea_filename, waste_local, aether_local,
+                         pipeline_enabled)
     elif input_mode == "m-to-a":
         if ".in" in output_files[0] or ".r" in output_files[1]:
             aleae_in_filename = output_files[0]
@@ -684,29 +937,13 @@ def scan_args():
 
         if error_check_enable:
             if not check_marlea_file(marlea_filename):
-                return
+                exit(0)
             print("No errors were found. Beginning file conversion.")
 
-        if pipeline_enabled:
-            reader_thread = Thread(None, read_marlea_file, None, [marlea_filename, ])
-            converter_thread = Thread(None, marlea_to_aleae_converter, None, [waste_local, aether_local, ])
-            writer_thread_in = Thread(None, write_aleae_in_file, None, [aleae_in_filename, ])
-            writer_thread_r = Thread(None, write_aleae_r_file, None, [aleae_r_filename, ])
-
-            reader_thread.start()
-            converter_thread.start()
-            writer_thread_in.start()
-            writer_thread_r.start()
-
-            reader_thread.join()
-            converter_thread.join()
-            writer_thread_in.join()
-            writer_thread_r.join()
-        else:
-            read_marlea_file(marlea_filename)
-            marlea_to_aleae_converter(waste_local, aether_local)
-            write_aleae_in_file(aleae_in_filename)
-            write_aleae_r_file(aleae_r_filename)
+        start_m_to_a_conversion(aleae_in_filename, aleae_r_filename, marlea_filename, waste_local, aether_local,
+                         pipeline_enabled)
+    elif input_mode == "gui":
+        print("fds")
     else:
         print("Error: Invalid command.")
         exit(-1)
