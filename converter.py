@@ -1,6 +1,6 @@
 """
 Name: AwesomeNova
-Updated at: 10/17/2024
+Updated at: 10/18/2024
 
 Script for converting Aleae files into MARlea ones and vice versa via sequential or pipelined execution. Please read the
 README to learn how to use it. The script checks for whether an input file given to it is valid, specified by the
@@ -71,7 +71,7 @@ selected_output_in_file_label = ttk.Label(file_frame, text="Selected File:")
 selected_output_r_file_label = ttk.Label(file_frame, text="Selected File:")
 selected_output_marlea_file_label = ttk.Label(file_frame, text="Selected File:")
 
-waste_aether_label = ttk.Label(waste_aether_frame, text="Enter waste and aether chemicals")
+waste_aether_label = ttk.Label(waste_aether_frame, text="Enter waste and aether chemicals \n(Separate aether chemicals by whitespace)")
 waste_label = ttk.Label(waste_aether_frame, text="Waste:")
 aether_label = ttk.Label(waste_aether_frame, text="Aether:")
 
@@ -93,7 +93,7 @@ gui_aether=StringVar()
 
 
 def open_file_dialog_in():
-    """Prompt the user with a open file dialog and set the .in file variable to user input."""
+    """Prompt the user with an open file dialog and set the .in file variable to user input."""
     global gui_a_to_m_aleae_file_in
     gui_a_to_m_aleae_file_in = filedialog.askopenfilename(title="Select a File", filetypes=[("Aleae initialization files", "*.in")])
     if gui_a_to_m_aleae_file_in:
@@ -115,21 +115,21 @@ def open_file_dialog_csv():
 
 
 def save_file_dialog_in():
-    """Prompt the user with a open file dialog and set the .in file variable to user input."""
+    """Prompt the user with a save file dialog and set the .in file variable for output."""
     global gui_m_to_a_aleae_file_in
     gui_m_to_a_aleae_file_in = filedialog.asksaveasfilename(title="Select a File", filetypes=[("Aleae initialization files", "*.in")])
     if gui_m_to_a_aleae_file_in:
         selected_output_in_file_label.config(text=f"Selected File: {gui_m_to_a_aleae_file_in}")
 
 def save_file_dialog_r():
-    """Prompt the user with an open file dialog and set the .r file variable to user input."""
+    """Prompt the user with an save file dialog and set the .r file variable for output."""
     global gui_m_to_a_aleae_file_r
     gui_m_to_a_aleae_file_r = filedialog.asksaveasfilename(title="Select a File", filetypes=[("Aleae reaction files", "*.r")])
     if gui_m_to_a_aleae_file_r:
         selected_output_r_file_label.config(text=f"Selected File: {gui_m_to_a_aleae_file_r}")
 
 def save_file_dialog_csv():
-    """Prompt the user with a open file dialog and set the .csv file variable to user input."""
+    """Prompt the user with a save file dialog and set the .csv file variable for output."""
     global gui_a_to_m_marlea_file
     gui_a_to_m_marlea_file = filedialog.asksaveasfilename(title="Select a File", filetypes=[("MARlea files", "*.csv")])
     if gui_a_to_m_marlea_file:
@@ -210,6 +210,13 @@ def gui_start_conversion():
     if gui_input_mode.get() == "":
         return
 
+    if "," in gui_aether.get() or "//" in gui_aether.get():
+        messagebox.showerror(title="Invalid aether terms", message="Please enter aether terms as instructed.")
+        return
+    elif len(gui_waste.get().split()) != 1 or "," in gui_waste.get() or "//" in gui_waste.get():
+        messagebox.showerror(title="Invalid waste term", message="Please enter only one waste term. No commas or '//' strings.")
+        return
+
     if not gui_error_check_enable.get():
        messagebox.askyesno(message='Error checking was not enabled. Any errors in your input files will cause unintended results.\nProceed with error checking enabled?',
         icon = 'warning',
@@ -218,6 +225,7 @@ def gui_start_conversion():
     if gui_input_mode.get() == "a-to-m":
         global gui_a_to_m_aleae_file_in
         global gui_a_to_m_aleae_file_r
+
 
         if gui_a_to_m_aleae_file_in == "" or gui_a_to_m_aleae_file_r == "" or gui_a_to_m_marlea_file == "":
             messagebox.showerror(title="Missing files", message="All files need to be entered.")
@@ -229,8 +237,6 @@ def gui_start_conversion():
                                     gui_waste.get(), gui_aether.get(), gui_pipeline_enable.get())
     elif gui_input_mode.get() == "m-to-a":
         global gui_m_to_a_marlea_file
-        if gui_error_check_enable.get():
-            check_aleae_files(gui_m_to_a_aleae_file_in, gui_m_to_a_aleae_file_r)
 
         if gui_m_to_a_marlea_file == "" or gui_m_to_a_aleae_file_in == "" or gui_m_to_a_aleae_file_r == "":
             messagebox.showerror(title="Missing files", message="All files need to be entered.")
@@ -756,7 +762,7 @@ def write_aleae_r_file(aleae_r_filename):
     f_aleae_output_r.close()
 
 
-def run_error_checking(aleae_in_file, aleae_r_file, marlea_file ):
+def run_error_checking(aleae_in_file, aleae_r_file, marlea_file):
     print("Beginning file checking.")
     if not os.path.isfile("error_checker.py"):
         print("Error checker script not found. Is it named 'error_checker.py' "
