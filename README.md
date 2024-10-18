@@ -91,9 +91,9 @@ To operate the script, commands are entered into the terminal in this format:
   * 1.2: 
     * Added optional pre-conversion error checking to converter.py 
     * Added error checking script with the same code used in converter.py
-* October 17, 2024
-  * Implemented the gui that is summoned with a command
+* October 18, 2024
+  * 1.3:
+    * Implemented the gui that is summoned with a command
 
 ## Potential Feature(s) to Be Added
-* A GUI to enter the parameters in, loading in when no commands are given
 * Support for converting non-csv input MARlea files into Aleae output files (if new files types are supported in MARlea)

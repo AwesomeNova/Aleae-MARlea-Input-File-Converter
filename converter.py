@@ -19,7 +19,7 @@ import queue
 import tkinter
 from enum import IntEnum
 from threading import Thread
-from tkinter import Tk, ttk, StringVar, BooleanVar, filedialog, messagebox, W
+from tkinter import Tk, ttk, StringVar, BooleanVar, filedialog, messagebox
 
 ALEAE_FIELD_SEPARATOR = ':'
 MARLEA_TERM_SEPARATOR = '+'
@@ -41,26 +41,49 @@ class ReactionParts(IntEnum):
     NUM_FIELDS = 3
 
 
-gui_root = Tk()                                                        # Setup the gui
+gui_root = Tk()                                                        # Set up the gui
 gui_root.title("Aleae-MARlea File Converter")
 gui_root.minsize(500, 300)
-selected_in_file_label = ttk.Label(gui_root, text="Selected File:")
-selected_r_file_label = ttk.Label(gui_root, text="Selected File:")
-selected_marlea_file_label = ttk.Label(gui_root, text="Selected File:")
-input_label = ttk.Label(gui_root, text="Input Files")
-output_label = ttk.Label(gui_root, text="Output Files")
-waste_label = ttk.Label(gui_root, text="Waste:")
-aether_label = ttk.Label(gui_root, text="Aether:")
+button_frame = ttk.Frame(gui_root, padding="8 8 12 12")
+file_frame = ttk.Frame(gui_root, padding="8 8 12 12")
+waste_aether_frame = ttk.Frame(gui_root, padding="8 8 12 12")
+conversion_button_frame = ttk.Frame(gui_root, padding="8 8 12 12")
+button_frame.grid(column=0, row=0, sticky=(tkinter.N, tkinter.W, tkinter.E, tkinter.S))
+file_frame.grid(column=1, row=0)
+waste_aether_frame.grid(column=0, row=1)
+conversion_button_frame.grid(column= 1, row=1)
+gui_root.columnconfigure(0, weight=1)
+gui_root.columnconfigure(1, weight=1)
+gui_root.columnconfigure(2, weight=1)
+gui_root.rowconfigure(list(range(10)), weight=1)
+
+radio_button_label = ttk.Label(button_frame, text="Conversion mode select:")
+radio_button_label.grid(column=0, row=0, sticky=tkinter.W)
+flag_label = ttk.Label(button_frame, text="Select enable flags:")
+flag_label.grid(column=0, row=4, sticky=tkinter.W)
+
+input_label = ttk.Label(file_frame, text="Input Files")
+output_label = ttk.Label(file_frame, text="Output Files")
+selected_input_in_file_label = ttk.Label(file_frame, text="Selected File:")
+selected_input_r_file_label = ttk.Label(file_frame, text="Selected File:")
+selected_input_marlea_file_label = ttk.Label(file_frame, text="Selected File:")
+selected_output_in_file_label = ttk.Label(file_frame, text="Selected File:")
+selected_output_r_file_label = ttk.Label(file_frame, text="Selected File:")
+selected_output_marlea_file_label = ttk.Label(file_frame, text="Selected File:")
+
+waste_aether_label = ttk.Label(waste_aether_frame, text="Enter waste and aether chemicals")
+waste_label = ttk.Label(waste_aether_frame, text="Waste:")
+aether_label = ttk.Label(waste_aether_frame, text="Aether:")
 
 gui_input_mode = StringVar()
 
 gui_a_to_m_aleae_file_in = ""                                           # Initialize gui file variables
 gui_a_to_m_aleae_file_r = ""
-gui_a_to_m_marlea_file = StringVar()
+gui_a_to_m_marlea_file = ""
 
 gui_m_to_a_marlea_file = ""
-gui_m_to_a_aleae_file_in = StringVar()
-gui_m_to_a_aleae_file_r = StringVar()
+gui_m_to_a_aleae_file_in = ""
+gui_m_to_a_aleae_file_r = ""
 
 gui_error_check_enable=BooleanVar()
 gui_pipeline_enable=BooleanVar()
@@ -68,100 +91,125 @@ gui_pipeline_enable=BooleanVar()
 gui_waste=StringVar()
 gui_aether=StringVar()
 
-mainframe = ttk.Frame(gui_root, padding="6 6 24 24")
-mainframe.grid(column=0, row=0, sticky=(tkinter.N, tkinter.W, tkinter.E, tkinter.S))
-gui_root.columnconfigure(0, weight=10)
-gui_root.columnconfigure(1, weight=10)
-gui_root.columnconfigure(2, weight=10)
-gui_root.rowconfigure(list(range(10)), weight=10)
-
 
 def open_file_dialog_in():
     """Prompt the user with a open file dialog and set the .in file variable to user input."""
     global gui_a_to_m_aleae_file_in
     gui_a_to_m_aleae_file_in = filedialog.askopenfilename(title="Select a File", filetypes=[("Aleae initialization files", "*.in")])
     if gui_a_to_m_aleae_file_in:
-        selected_in_file_label.config(text=f"Selected File: {gui_a_to_m_aleae_file_in}")
+        selected_input_in_file_label.config(text=f"Selected File: {gui_a_to_m_aleae_file_in}")
 
 def open_file_dialog_r():
     """Prompt the user with an open file dialog and set the .r file variable to user input."""
     global gui_a_to_m_aleae_file_r
     gui_a_to_m_aleae_file_r = filedialog.askopenfilename(title="Select a File", filetypes=[("Aleae reaction files", "*.r")])
     if gui_a_to_m_aleae_file_r:
-        selected_r_file_label.config(text=f"Selected File: {gui_a_to_m_aleae_file_r}")
+        selected_input_r_file_label.config(text=f"Selected File: {gui_a_to_m_aleae_file_r}")
 
 def open_file_dialog_csv():
     """Prompt the user with a open file dialog and set the .csv file variable to user input."""
     global gui_m_to_a_marlea_file
     gui_m_to_a_marlea_file = filedialog.askopenfilename(title="Select a File", filetypes=[("MARlea files", "*.csv")])
     if gui_m_to_a_marlea_file:
-        selected_marlea_file_label.config(text=f"Selected File: {gui_m_to_a_marlea_file}")
+        selected_input_marlea_file_label.config(text=f"Selected File: {gui_m_to_a_marlea_file}")
 
 
-a_to_m_in_buttons = ttk.Button(gui_root, text="Open File", command=open_file_dialog_in)
-a_to_m_r_buttons = ttk.Button(gui_root, text="Open File", command=open_file_dialog_r)
-a_to_m_out_entry = ttk.Entry(gui_root, textvariable=gui_a_to_m_marlea_file)
+def save_file_dialog_in():
+    """Prompt the user with a open file dialog and set the .in file variable to user input."""
+    global gui_m_to_a_aleae_file_in
+    gui_m_to_a_aleae_file_in = filedialog.asksaveasfilename(title="Select a File", filetypes=[("Aleae initialization files", "*.in")])
+    if gui_m_to_a_aleae_file_in:
+        selected_output_in_file_label.config(text=f"Selected File: {gui_m_to_a_aleae_file_in}")
 
-m_to_a_buttons = ttk.Button(gui_root, text="Open File", command=open_file_dialog_csv)
-m_to_a_in_out_entry = ttk.Entry(gui_root, textvariable=gui_m_to_a_aleae_file_in)
-m_to_a_r_out_entry = ttk.Entry(gui_root, textvariable=gui_m_to_a_aleae_file_r)
+def save_file_dialog_r():
+    """Prompt the user with an open file dialog and set the .r file variable to user input."""
+    global gui_m_to_a_aleae_file_r
+    gui_m_to_a_aleae_file_r = filedialog.asksaveasfilename(title="Select a File", filetypes=[("Aleae reaction files", "*.r")])
+    if gui_m_to_a_aleae_file_r:
+        selected_output_r_file_label.config(text=f"Selected File: {gui_m_to_a_aleae_file_r}")
+
+def save_file_dialog_csv():
+    """Prompt the user with a open file dialog and set the .csv file variable to user input."""
+    global gui_a_to_m_marlea_file
+    gui_a_to_m_marlea_file = filedialog.asksaveasfilename(title="Select a File", filetypes=[("MARlea files", "*.csv")])
+    if gui_a_to_m_marlea_file:
+        selected_output_marlea_file_label.config(text=f"Selected File: {gui_a_to_m_marlea_file}")
+
+
+a_to_m_in_buttons = ttk.Button(file_frame, text="Open File", command=open_file_dialog_in)
+a_to_m_r_buttons = ttk.Button(file_frame, text="Open File", command=open_file_dialog_r)
+a_to_m_out_btn = ttk.Button(file_frame, text="Create File", command=save_file_dialog_csv)
+
+m_to_a_buttons = ttk.Button(file_frame, text="Open File", command=open_file_dialog_csv)
+m_to_a_in_out_btn = ttk.Button(file_frame, text="Create File", command=save_file_dialog_in)
+m_to_a_r_out_btn = ttk.Button(file_frame, text="Create File", command=save_file_dialog_r)
 
 
 def aleae_to_marlea_btns():
     """Setup and change buttons when a-to-m mode is set."""
-    selected_marlea_file_label.grid_remove()
+    selected_input_marlea_file_label.grid_remove()
+    selected_output_in_file_label.grid_remove()
+    selected_output_r_file_label.grid_remove()
     m_to_a_buttons.grid_remove()
-    m_to_a_r_out_entry.grid_remove()
-    m_to_a_in_out_entry.grid_remove()
+    m_to_a_r_out_btn.grid_remove()
+    m_to_a_in_out_btn.grid_remove()
 
-    input_label.grid(column=1, row=5, sticky=tkinter.S)
-    selected_in_file_label.grid(column=1, row=6, sticky=tkinter.W)
-    selected_r_file_label.grid(column=1, row=7, sticky=tkinter.W)
-    output_label.grid(column=1, row=8, sticky=tkinter.S)
+    input_label.grid(column=1, row=0, sticky=tkinter.S)
+    selected_input_in_file_label.grid(column=1, row=1, sticky=tkinter.W)
+    selected_input_r_file_label.grid(column=1, row=2, sticky=tkinter.W)
+    output_label.grid(column=1, row=3, sticky=tkinter.S)
 
-    a_to_m_in_buttons.grid(column=0, row=6, sticky=tkinter.E)
-    a_to_m_r_buttons.grid(column=0, row=7, sticky=tkinter.E)
-    a_to_m_out_entry.grid(column=1, row=9, sticky=tkinter.NW)
+    selected_output_marlea_file_label.grid(column=1, row=4, sticky=tkinter.W)
+    a_to_m_in_buttons.grid(column=0, row=1, sticky=tkinter.E)
+    a_to_m_r_buttons.grid(column=0, row=2, sticky=tkinter.E)
+    a_to_m_out_btn.grid(column=0, row=4, sticky=tkinter.N)
 
 
 def marlea_to_aleae_btns():
     """Setup and change buttons when m-to-a mode is set."""
     a_to_m_in_buttons.grid_remove()
     a_to_m_r_buttons.grid_remove()
-    a_to_m_out_entry.grid_remove()
-    selected_in_file_label.grid_remove()
-    selected_r_file_label.grid_remove()
+    a_to_m_out_btn.grid_remove()
+    selected_input_in_file_label.grid_remove()
+    selected_input_r_file_label.grid_remove()
+    selected_output_marlea_file_label.grid_remove()
 
-    input_label.grid(column=1, row=5, sticky=tkinter.S)
-    selected_marlea_file_label.grid(column=1, row=6, sticky=tkinter.W)
-    output_label.grid(column=1, row=7, sticky=tkinter.S)
+    input_label.grid(column=1, row=0, sticky=tkinter.S)
+    selected_input_marlea_file_label.grid(column=1, row=1, sticky=tkinter.W)
+    output_label.grid(column=1, row=2, sticky=tkinter.S)
 
-    m_to_a_buttons.grid(column=0, row=6, sticky=tkinter.E)
-    m_to_a_in_out_entry.grid(column=1, row=8, sticky=tkinter.NW)
-    m_to_a_r_out_entry.grid(column=1, row=9, sticky=tkinter.NW)
+    selected_output_in_file_label.grid(column=1, row=3, sticky=tkinter.W)
+    selected_output_r_file_label.grid(column=1, row=4, sticky=tkinter.W)
+    m_to_a_buttons.grid(column=0, row=1, sticky=tkinter.E)
+    m_to_a_in_out_btn.grid(column=0, row=3, sticky=tkinter.N)
+    m_to_a_r_out_btn.grid(column=0, row=4, sticky=tkinter.N)
 
 
 # Set up the buttons and checkboxes for the gui
-a_to_m_check = ttk.Radiobutton(mainframe, text='Aleae to MARlea', variable=gui_input_mode, value='a-to-m', command=aleae_to_marlea_btns)
-m_to_a_check = ttk.Radiobutton(mainframe, text='MARlea to Aleae', variable=gui_input_mode, value='m-to-a', command=marlea_to_aleae_btns)
-a_to_m_check.grid(column=0, row=0, sticky=tkinter.NW)
-m_to_a_check.grid(column=1, row=0, sticky=tkinter.NW)
+a_to_m_check = ttk.Radiobutton(button_frame, text='Aleae to MARlea', variable=gui_input_mode, value='a-to-m', command=aleae_to_marlea_btns)
+m_to_a_check = ttk.Radiobutton(button_frame, text='MARlea to Aleae', variable=gui_input_mode, value='m-to-a', command=marlea_to_aleae_btns)
+a_to_m_check.grid(column=0, row=1, sticky=tkinter.SW)
+m_to_a_check.grid(column=0, row=2, sticky=tkinter.SW)
 
-error_check_widget = ttk.Checkbutton(mainframe, text="Enable error checking", variable=gui_error_check_enable, onvalue=True, offvalue=False)
-pipeline_widget = ttk.Checkbutton(mainframe, text="Enable pipelined execution", variable=gui_pipeline_enable, onvalue=True, offvalue=False)
-waste_entry = ttk.Entry(gui_root, textvariable=gui_waste)
-error_check_widget.grid(column=0, row=3, sticky=tkinter.NW)
-pipeline_widget.grid(column=0, row=4, sticky=tkinter.NW)
+error_check_widget = ttk.Checkbutton(button_frame, text="Enable error checking", variable=gui_error_check_enable, onvalue=True, offvalue=False)
+pipeline_widget = ttk.Checkbutton(button_frame, text="Enable pipelined execution", variable=gui_pipeline_enable, onvalue=True, offvalue=False)
+error_check_widget.grid(column=0, row=5, sticky=tkinter.SW)
+pipeline_widget.grid(column=0, row=6, sticky=tkinter.SW)
 
+waste_aether_label.grid(column=2, row=0)
+waste_entry = ttk.Entry(waste_aether_frame, textvariable=gui_waste)
 waste_entry.grid(column=2, row=1, sticky=tkinter.NW)
 waste_label.grid(column=1, row=1, sticky=tkinter.E)
-aether_entry = ttk.Entry(gui_root, textvariable=gui_aether)
+aether_entry = ttk.Entry(waste_aether_frame, textvariable=gui_aether)
 aether_label.grid(column=1, row=2, sticky=tkinter.E)
 aether_entry.grid(column=2, row=2, sticky=tkinter.NW)
 
 
 def gui_start_conversion():
     """The entry point for gui execution. """
+    if gui_input_mode.get() == "":
+        return
+
     if not gui_error_check_enable.get():
        messagebox.askyesno(message='Error checking was not enabled. Any errors in your input files will cause unintended results.\nProceed with error checking enabled?',
         icon = 'warning',
@@ -170,32 +218,35 @@ def gui_start_conversion():
     if gui_input_mode.get() == "a-to-m":
         global gui_a_to_m_aleae_file_in
         global gui_a_to_m_aleae_file_r
-        print("get")
-        if gui_error_check_enable.get():
-            check_aleae_files(gui_a_to_m_aleae_file_in, gui_a_to_m_aleae_file_r)
-        print(gui_a_to_m_aleae_file_in, gui_a_to_m_aleae_file_r)
 
-        if gui_a_to_m_aleae_file_in == "" or gui_a_to_m_aleae_file_r == "" or gui_a_to_m_marlea_file.get() == "":
+        if gui_a_to_m_aleae_file_in == "" or gui_a_to_m_aleae_file_r == "" or gui_a_to_m_marlea_file == "":
             messagebox.showerror(title="Missing files", message="All files need to be entered.")
             return
-        start_a_to_m_conversion(gui_a_to_m_aleae_file_in, gui_a_to_m_aleae_file_r, gui_a_to_m_marlea_file.get(),
-                                gui_waste.get(), gui_aether.get(), gui_pipeline_enable.get())
+        else:
+            if gui_error_check_enable.get():
+                check_aleae_files(gui_a_to_m_aleae_file_in, gui_a_to_m_aleae_file_r)
+            start_a_to_m_conversion(gui_a_to_m_aleae_file_in, gui_a_to_m_aleae_file_r, gui_a_to_m_marlea_file,
+                                    gui_waste.get(), gui_aether.get(), gui_pipeline_enable.get())
     elif gui_input_mode.get() == "m-to-a":
         global gui_m_to_a_marlea_file
         if gui_error_check_enable.get():
-            check_aleae_files(gui_m_to_a_aleae_file_in.get(), gui_m_to_a_aleae_file_r.get())
+            check_aleae_files(gui_m_to_a_aleae_file_in, gui_m_to_a_aleae_file_r)
 
-        if gui_m_to_a_marlea_file == "" or gui_m_to_a_aleae_file_in.get() == "" or gui_m_to_a_aleae_file_r.get() == "":
+        if gui_m_to_a_marlea_file == "" or gui_m_to_a_aleae_file_in == "" or gui_m_to_a_aleae_file_r == "":
             messagebox.showerror(title="Missing files", message="All files need to be entered.")
             return
-        start_m_to_a_conversion(gui_m_to_a_aleae_file_in.get(), gui_m_to_a_aleae_file_r.get(), gui_a_to_m_marlea_file,
-                                gui_waste.get(), gui_aether.get(), gui_pipeline_enable.get())
+        else:
+            if gui_error_check_enable.get():
+                check_marlea_file(gui_m_to_a_marlea_file)
+            start_m_to_a_conversion(gui_m_to_a_aleae_file_in, gui_m_to_a_aleae_file_r, gui_m_to_a_marlea_file,
+                                    gui_waste.get(), gui_aether.get(), gui_pipeline_enable.get())
+
     messagebox.showinfo(title="Conversion Complete", message="Input files have been converted.")
-    exit(0)
+    # exit(0)
 
 
 confirm_btn = ttk.Button(gui_root, text="Start Conversion", command=gui_start_conversion)
-confirm_btn.grid(column=1, row=10)
+confirm_btn.grid(column=1, row=1)
 
 
 def open_file_read(filename):
@@ -824,7 +875,6 @@ def scan_args():
 
             if proceed.strip().lower() == "y":
                 error_check_enable = True
-
 
         if parsed_args.waste is not None:
             waste_local = parsed_args.waste
