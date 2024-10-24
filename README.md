@@ -96,4 +96,5 @@ To operate the script, commands are entered into the terminal in this format:
     * Implemented the gui that is summoned with a command
 
 ## Potential Feature(s) to Be Added
+* Implement error checking to run in parallel to conversion process, will halt conversion if an error is found and notify user that output file is invalid
 * Support for converting non-csv input MARlea files into Aleae output files (if new files types are supported in MARlea)
