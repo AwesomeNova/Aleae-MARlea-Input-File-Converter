@@ -97,4 +97,9 @@ To operate the script, commands are entered into the terminal in this format:
 
 ## Potential Feature(s) to Be Added
 * Implement error checking to run in parallel to conversion process, will halt conversion if an error is found and notify user that output file is invalid
+* Parallize pipelined execution
+  * Can be done via multiprocessing, asyncio, and new subinterpreters modules.
+  * Disabling the GIL 
+    * Is possible since no concurrent write accesses to files and objects like strings
+    * Concurrent access to thread-safe data structures like queues are present, but should be fine due to it being thread-safe, though it is untested.
 * Support for converting non-csv input MARlea files into Aleae output files (if new files types are supported in MARlea)
