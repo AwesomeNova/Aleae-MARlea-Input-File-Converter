@@ -861,7 +861,7 @@ def scan_args():
     m_to_a_parser.add_argument("--aether", action='store', nargs='*', help="A list of chemicals that enable continous production of other chemicals")
 
     gui_parser = subparsers.add_parser("gui", usage="summons the gui", help="Summon the program's graphical user interface")
-    gui_parser.add_argument("-v", "--verbose", action='store_true')
+    gui_parser.add_argument("-v", "--verbose", action='store_true', help="This argument has no function at the moment")
 
     parsed_args = main_parser.parse_args(sys.argv[1:])  # Extract some of the arguments from the command-line input
     input_mode = parsed_args.command
