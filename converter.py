@@ -20,7 +20,6 @@ import tkinter
 from enum import IntEnum
 from threading import Thread
 from tkinter import Tk, ttk, StringVar, BooleanVar, filedialog, messagebox
-import time
 
 ALEAE_FIELD_SEPARATOR = ':'
 MARLEA_TERM_SEPARATOR = '+'
@@ -893,8 +892,8 @@ def scan_args():
                     exit(0)
 
         input_files = parsed_args.input                             # Extract the rest of the command-line input
-        pipeline_enabled = parsed_args.pipeline_enable
         output_files = parsed_args.output
+        pipeline_enabled = parsed_args.pipeline_enable
 
     if input_mode == "a-to-m":
         if ".in" in input_files[0] and ".r" in input_files[1]:
