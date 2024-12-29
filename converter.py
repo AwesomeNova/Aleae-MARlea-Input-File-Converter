@@ -842,7 +842,7 @@ def scan_args():
 
     # All the commands and their associated flags
     main_parser = argparse.ArgumentParser(prog="converter.py", add_help=True)
-    subparsers = main_parser.add_subparsers(dest="command")
+    subparsers = main_parser.add_subparsers(dest="command", required=True)
 
     a_to_m_parser = subparsers.add_parser("a-to-m", usage="Convert Aleae files into MARlea files", help="Convert Aleae files to an MARlea equivalent")
     a_to_m_parser.add_argument("-i", "--input", action='store', nargs=2, required=True, help="Paths to the .in and .r Aleae files")
@@ -865,10 +865,6 @@ def scan_args():
 
     parsed_args = main_parser.parse_args(sys.argv[1:])  # Extract some of the arguments from the command-line input
     input_mode = parsed_args.command
-
-    if input_mode is None:
-        print("No commands entered. Closing Program.")
-        exit(0)
 
     if input_mode != "gui":
         error_check_enable = parsed_args.error_check_enable
