@@ -20,6 +20,7 @@ import tkinter
 from enum import IntEnum
 from threading import Thread
 from tkinter import Tk, ttk, StringVar, BooleanVar, filedialog, messagebox
+import time
 
 ALEAE_FIELD_SEPARATOR = ':'
 MARLEA_TERM_SEPARATOR = '+'
@@ -213,7 +214,7 @@ def gui_start_conversion():
     if "," in gui_aether.get() or "//" in gui_aether.get():
         messagebox.showerror(title="Invalid aether terms", message="Please enter aether terms as instructed.")
         return
-    elif len(gui_waste.get().split()) != 1 or "," in gui_waste.get() or "//" in gui_waste.get():
+    elif len(gui_waste.get().split()) > 1 or "," in gui_waste.get() or "//" in gui_waste.get():
         messagebox.showerror(title="Invalid waste term", message="Please enter only one waste term. No commas or '//' strings.")
         return
 
@@ -820,6 +821,7 @@ def start_m_to_a_conversion(aleae_in_filename, aleae_r_filename, marlea_filename
         write_aleae_in_file(aleae_in_filename)
         write_aleae_r_file(aleae_r_filename)
 
+
 def scan_args():
     """
     The function interprets the command-line input and parses it for any information needed to start converting input
@@ -828,6 +830,11 @@ def scan_args():
 
     waste_local = ""
     aether_local = []
+
+    input_files = []
+    pipeline_enabled = False
+    output_files = []
+    error_check_enable = False
 
     if sys.version_info.major < 3 and sys.version_info.minor < 8:
         print("Version of Python must be 3.8 or higher")
@@ -863,10 +870,7 @@ def scan_args():
         print("No commands entered. Closing Program.")
         exit(0)
 
-    if input_mode == "gui":
-        gui_root.mainloop()
-        exit(0)
-    else:
+    if input_mode != "gui":
         error_check_enable = parsed_args.error_check_enable
 
         if not error_check_enable:
@@ -943,7 +947,8 @@ def scan_args():
         start_m_to_a_conversion(aleae_in_filename, aleae_r_filename, marlea_filename, waste_local, aether_local,
                          pipeline_enabled)
     elif input_mode == "gui":
-        print("fds")
+        gui_root.mainloop()
+        exit(0)
     else:
         print("Error: Invalid command.")
         exit(-1)
