@@ -17,6 +17,7 @@ import sys
 import csv
 import queue
 import tkinter
+import re
 from enum import IntEnum
 from threading import Thread
 from tkinter import Tk, ttk, StringVar, BooleanVar, filedialog, messagebox
@@ -575,37 +576,38 @@ def aleae_to_marlea_converter(waste, aether):
     """
     temp = input_file_reader_to_converter_queue.get()
     while temp != END_PROCEDURE:
-        converted_reaction = []
-        temp_row = temp.split(ALEAE_FIELD_SEPARATOR)                            # Split reactants, products, and rates into elements of list called temp_row
+        temp_row = temp.strip().split(ALEAE_FIELD_SEPARATOR)                     # Split reactants, products, and rates into elements of list called temp_row
+        chem_rate = ""
 
+        converted_reaction = []
         converted_reaction_str = ""
         for i in range(ReactionParts.NUM_FIELDS.value):
-            chem_reaction = remove_empty_str_elems(temp_row[i].split(" "))      # Split reactants/products and their coefficients into elements of chem_reactiosn
-            if len(chem_reaction) > 1:
-                for j in range(0, len(chem_reaction), 2):
-                    (chem_reaction[j], chem_reaction[j + 1]) = (chem_reaction[j + 1], chem_reaction[j])
+            if i == ReactionParts.REACTION_RATE.value:                          # Strip rate of converted reactions
+                chem_rate = temp_row[i].strip()
+            else:                                                               # Convert reactant/product part of the reaction to MARlea
+                field = temp_row[i].strip()
+                field = re.sub(r'([^+: ]+)\s(\d+)', r"\2 \1", field)
 
-            if i == ReactionParts.REACTION_RATE.value:                          # Strip and add rate to converted reactions
-                chem_rate = chem_reaction[0].strip()
-                converted_reaction.append(converted_reaction_str.strip())
-                converted_reaction.append(" " + chem_rate)
-            else:
-                for k in range(len(chem_reaction)):                             # Convert reactant/product part of the reaction to MARlea
-                    if ((i == ReactionParts.REACTANTS.value and chem_reaction[k] in set(aether)) or
-                            (i == ReactionParts.PRODUCTS.value and chem_reaction[k] == waste)):
-                        chem_reaction[k] = MARLEA_NULL
-                        converted_reaction_str += chem_reaction[k] + " "
-                    elif not chem_reaction[k] in set(aether):
-                        if chem_reaction[k] != "1":
-                            converted_reaction_str += chem_reaction[k] + " "
-                        if chem_reaction[k] == waste:
-                            chem_reaction[k] = MARLEA_NULL
-                            converted_reaction_str += chem_reaction[k] + " "
-                        if not chem_reaction[k].isnumeric() and k < len(chem_reaction) - 1:
-                            converted_reaction_str += MARLEA_TERM_SEPARATOR + " "
+                for aether_term in set(aether):
+                    if i == ReactionParts.REACTANTS.value:
+                        field = re.sub(rf'(\d+)\s({aether_term})', rf'{MARLEA_NULL}', field)
+                    else:
+                        field = re.sub(rf'(\d+)\s({aether_term})', r'', field)
+                if i == ReactionParts.PRODUCTS.value and waste != '' and waste in field:
+                    field = re.sub(rf'(\d+)\s({waste})', rf'{MARLEA_NULL}', field)
+
+                field = re.sub(r'([^+: ]+)\s(\d+)', r'\1 + \2', field)
+                field = re.sub(r'^1\s', r"", field)
+                field = re.sub(r'\s1\s', r" ", field)
+                field = field.strip()
+
                 if i == ReactionParts.REACTANTS.value:
-                    converted_reaction_str += MARLEA_ARROW + ' '
+                    converted_reaction_str += field + ' ' + MARLEA_ARROW + ' '
+                else:
+                    converted_reaction_str += field
 
+        converted_reaction.append(converted_reaction_str)                          # Add converted reaction and chem rate to list
+        converted_reaction.append(" " + chem_rate)
         converter_to_output_file_writer_queue_0.put(converted_reaction)
         temp = input_file_reader_to_converter_queue.get()
 
@@ -629,7 +631,7 @@ def write_marlea_file(MARlea_output_filename):
 
     temp = converter_to_output_file_writer_queue_0.get()
     while temp != END_PROCEDURE:
-        writer.writerow(temp)                                               # Write processes line from converter
+        writer.writerow(temp)                                               # Write processed line from converter
         temp = converter_to_output_file_writer_queue_0.get()
 
     f_MARlea_output.close()
@@ -680,42 +682,37 @@ def marlea_to_aleae_converter(waste, aether):
         temp_rate = temp[1].strip()
         temp_reaction_pieces = temp[0].split(MARLEA_ARROW)                              # Split reactions into reactants and products
 
-        aether_loc_found = False
-        for j in range(ReactionParts.NUM_FIELDS.value - 1):                             # MARlea only contains two relevant fields: reaction and rate
-            temp_reaction_terms = temp_reaction_pieces[j].strip().split(MARLEA_TERM_SEPARATOR)  # Split reactants/products into terns
-            for k in range(len(temp_reaction_terms)):
-                temp_term = temp_reaction_terms[k].strip().split(" ")
+        final_chem_react_fields = ["", ""]
+        for i in range(ReactionParts.NUM_FIELDS.value - 1):                         # MARlea only contains two relevant fields: reaction and rate
+            final_chem_react_fields[i] = temp_reaction_pieces[i].strip()             # Split reactants/products into terms
+            final_chem_react_fields[i] = re.sub(rf'([{MARLEA_TERM_SEPARATOR}])', r'\1\1', final_chem_react_fields[i])
+            final_chem_react_fields[i] = re.sub(r'(\s+)', r' ', final_chem_react_fields[i])
+            final_chem_react_fields[i] = re.sub(r'([+])(\s)?([^+: ]+)(\s)?([+])', r' 1 \3',
+                                                "+ " + final_chem_react_fields[i] + " +")           # This makes converting terms easier
+            final_chem_react_fields[i] = re.sub(r'(\s+)?([+]+)(\s+)?', r' ', final_chem_react_fields[i]).strip()
+            final_chem_react_fields[i] = re.sub(r'(\d+)(\s)([^+: ]+)', r'\3 \1', final_chem_react_fields[i]).strip()
 
-                if temp_term[0] == MARLEA_NULL:                                         # Add aether or waste term depending on location of detected NULL
-                    if j == ReactionParts.REACTANTS.value:
-                        temp_term[0] = aether[0]
-                        aether_loc_found = True
-                    elif j == ReactionParts.PRODUCTS.value:
-                        temp_term[0] = waste
-                elif aether_loc_found and j == ReactionParts.PRODUCTS.value:
-                    chem_reaction_str += aether[0] + ' 1 '                              # Add aether term to reaction string
+            if len(aether) > 0 and len(re.findall(rf'({MARLEA_NULL})(\s\d+)', final_chem_react_fields[0])) != 0:
+                print(re.findall(rf'({MARLEA_NULL})(\s\d+)', final_chem_react_fields[0]))
+                final_chem_react_fields[0] = re.sub(rf'({MARLEA_NULL}+)(\s\d+)', rf'{aether[0]}\2',
+                                                    final_chem_react_fields[0])
+                final_chem_react_fields[1] = "1 " + aether[0] + " " + final_chem_react_fields[1]
 
-                if len(temp_term) > 1:
-                    (temp_term[0], temp_term[1]) = (temp_term[1], temp_term[0])
-                    chem_reaction_str += temp_term[0] + " " + temp_term[1]
-                else:
-                    temp_term.append("1")                                               # Add '1' as coefficient if terms lacks one
-                    chem_reaction_str += temp_term[0] + ' 1'
+            final_chem_react_fields[1] = re.sub(rf'({MARLEA_NULL}+)(\s\d+)', rf'{waste}\2', final_chem_react_fields[1])
 
-                if temp_term[0] not in set(found_chems.keys()):
-                    if len(aether) > 0 and temp_term[0] == aether[0]:             # Add discovered chemical to found_chems
-                        found_chems[temp_term[0]] = '1'
+            cur_terms = re.findall(r'([^+: ]+)(\s\d+)', final_chem_react_fields[i])
+            for term in cur_terms:
+                if term[0] not in set(found_chems.keys()):
+                    if len(aether) > 0 and term[0] == aether[0]:                        # Add discovered chemical to found_chems
+                        found_chems[term[0]] = '1'
                     else:
-                        found_chems[temp_term[0]] = '0'
-                    converter_to_output_file_writer_queue_0.put(temp_term[0].strip() + " " +
-                                                                found_chems[temp_term[0]].strip() + ' N\n')
-                chem_reaction_str += " "
-            if j == ReactionParts.REACTANTS.value:
-                chem_reaction_str += ALEAE_FIELD_SEPARATOR + " "
+                        found_chems[term[0]] = '0'
+                    converter_to_output_file_writer_queue_0.put(term[0] + " " + found_chems[term[0]] + ' N\n')
+
+            chem_reaction_str += final_chem_react_fields[i] + " " + ALEAE_FIELD_SEPARATOR + " "
 
         chem_reaction_str = chem_reaction_str.strip()
-        converter_to_output_file_writer_queue_1.put(chem_reaction_str + ' ' + ALEAE_FIELD_SEPARATOR
-                                                    + ' ' + temp_rate + '\n')
+        converter_to_output_file_writer_queue_1.put(chem_reaction_str + ' ' + temp_rate + '\n')
 
         temp = input_file_reader_to_converter_queue.get()
 
