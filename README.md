@@ -25,8 +25,6 @@ According to Marc Riedel's model of computational chemical reactions, a chemical
 * Due to difference between Aleae and MARlea files, conversions between them requires certain information to be lost
   * Names of "aether" chemicals as well as threshhold settings in Aleae files are lost when converting them to MARlea files
   * Comments in MARlea files are discarded when converting them to Aleae files
-* All files given as inputs are not checked for their validity
-  * Any invalid file can be inputted, which may result in unexpected outputs
 
 ## System Requirements and Recommendations
 * Python 3.8 or higher Required (Latest Recommended)
@@ -94,12 +92,15 @@ To operate the script, commands are entered into the terminal in this format:
 * October 18, 2024
   * 1.3:
     * Implemented the gui that is summoned with a command
+* March 15, 2025
+  * 1.4:
+    * Replaced conversion logic with a parser for Aleae and MARlea, complete with mid-execution error checking
+    * Removed all other error checking code
 
 ## Potential Feature(s) to Be Added
-* Implement error checking to run in parallel to conversion process, will halt conversion if an error is found and notify user that output file is invalid
 * Parallize pipelined execution
   * Can be done via multiprocessing, asyncio, and new subinterpreters modules.
   * Disabling the GIL 
     * Is possible since no concurrent write accesses to files and objects like strings
-    * Concurrent access to thread-safe data structures like queues are present, but should be fine due to it being thread-safe, though it is untested.
+    * Concurrent access to thread-safe data structures like queues are present, so no race conditions occur.
 * Support for converting non-csv input MARlea files into Aleae output files (if new files types are supported in MARlea)
