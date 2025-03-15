@@ -437,7 +437,7 @@ class AleaeParser(Parser):
     def convert_tree_to_marlea(old_root, waste='', aether=[]):
         new_root = AleaeMARLeaNode(NodeEnum.EQUATION, None, [])
 
-        for i in range(2):
+        for i in range(ReactionParts.NUM_FIELDS.value - 1):
             field = old_root.children[i]
             new_root.children.append(AleaeMARLeaNode(NodeEnum.FIELD, None, None))
             new_root.children[i].children = AleaeMARLeaNode(NodeEnum.TERM, None, None)
@@ -577,7 +577,7 @@ class MARleaParser(Parser):
         new_root = AleaeMARLeaNode(NodeEnum.EQUATION, None, [])
 
         aether_found = False
-        for i in range(2):
+        for i in range(ReactionParts.NUM_FIELDS.value - 1):
             field = old_root.children[i]
             new_root.children.append(AleaeMARLeaNode(NodeEnum.FIELD, None, None))
             new_root.children[i].children = AleaeMARLeaNode(NodeEnum.TERM, None, None)
@@ -585,10 +585,10 @@ class MARleaParser(Parser):
             new_node = new_root.children[i].children
             while temp_term is not None:
                 if temp_term.type == NodeEnum.MARLEA_NULL:
-                    if i == 0 and len(aether) > 0:
+                    if i == ReactionParts.REACTANTS.value and len(aether) > 0:
                         new_node.value = (NodeEnum.CHEM, aether[0]), (NodeEnum.COEFF, '1')
                         aether_found = True
-                    elif i == 1 and waste != '':
+                    elif i == ReactionParts.PRODUCTS.value and waste != '':
                         new_node.value = (NodeEnum.CHEM, waste), (NodeEnum.COEFF, '1')
                 else:
                     if aether_found:
