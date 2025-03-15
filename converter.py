@@ -517,7 +517,6 @@ class AleaeParser(Parser):
         return True
 
 
-
 class MARleaTokenizer(Tokenizer):
     def __init__(self, line):
         super().__init__(line)
