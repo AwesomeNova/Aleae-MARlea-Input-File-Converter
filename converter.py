@@ -86,7 +86,6 @@ gui_m_to_a_marlea_file = ""
 gui_m_to_a_aleae_file_in = ""
 gui_m_to_a_aleae_file_r = ""
 
-# gui_error_check_enable=BooleanVar()
 gui_pipeline_enable=BooleanVar()
 
 gui_waste=StringVar()
@@ -192,9 +191,7 @@ m_to_a_check = ttk.Radiobutton(button_frame, text='MARlea to Aleae', variable=gu
 a_to_m_check.grid(column=0, row=1, sticky=tkinter.SW)
 m_to_a_check.grid(column=0, row=2, sticky=tkinter.SW)
 
-# error_check_widget = ttk.Checkbutton(button_frame, text="Enable error checking", variable=gui_error_check_enable, onvalue=True, offvalue=False)
 pipeline_widget = ttk.Checkbutton(button_frame, text="Enable pipelined execution", variable=gui_pipeline_enable, onvalue=True, offvalue=False)
-# error_check_widget.grid(column=0, row=5, sticky=tkinter.SW)
 pipeline_widget.grid(column=0, row=6, sticky=tkinter.SW)
 
 waste_aether_label.grid(column=2, row=0)
@@ -218,11 +215,6 @@ def gui_start_conversion():
         messagebox.showerror(title="Invalid waste term", message="Please enter only one waste term. No commas or '//' strings.")
         return
 
-    # if not gui_error_check_enable.get():
-    #    messagebox.askyesno(message='Error checking was not enabled. Any errors in your input files will cause unintended results.\nProceed with error checking enabled?',
-    #     icon = 'warning',
-    #     title = 'Warning', )
-
     if gui_input_mode.get() == "a-to-m":
         global gui_a_to_m_aleae_file_in
         global gui_a_to_m_aleae_file_r
@@ -232,8 +224,6 @@ def gui_start_conversion():
             messagebox.showerror(title="Missing files", message="All files need to be entered.")
             return
         else:
-            # if gui_error_check_enable.get():
-            #     check_aleae_files(gui_a_to_m_aleae_file_in, gui_a_to_m_aleae_file_r)
             start_a_to_m_conversion(gui_a_to_m_aleae_file_in, gui_a_to_m_aleae_file_r, gui_a_to_m_marlea_file,
                                     gui_waste.get(), gui_aether.get(), gui_pipeline_enable.get())
     elif gui_input_mode.get() == "m-to-a":
@@ -243,13 +233,10 @@ def gui_start_conversion():
             messagebox.showerror(title="Missing files", message="All files need to be entered.")
             return
         else:
-            # if gui_error_check_enable.get():
-            #     check_marlea_file(gui_m_to_a_marlea_file)
             start_m_to_a_conversion(gui_m_to_a_aleae_file_in, gui_m_to_a_aleae_file_r, gui_m_to_a_marlea_file,
                                     gui_waste.get(), gui_aether.get(), gui_pipeline_enable.get())
 
     messagebox.showinfo(title="Conversion Complete", message="Input files have been converted.")
-    # exit(0)
 
 
 confirm_btn = ttk.Button(gui_root, text="Start Conversion", command=gui_start_conversion)
@@ -1069,7 +1056,7 @@ def scan_args():
     input_files = []
     pipeline_enabled = False
     output_files = []
-    error_check_enable = False
+    # error_check_enable = False
 
     if sys.version_info.major < 3 and sys.version_info.minor < 8:
         print("Version of Python must be 3.8 or higher")
@@ -1082,7 +1069,6 @@ def scan_args():
     a_to_m_parser = subparsers.add_parser("a-to-m", usage="Convert Aleae files into MARlea files", help="Convert Aleae files to an MARlea equivalent")
     a_to_m_parser.add_argument("-i", "--input", action='store', nargs=2, required=True, help="Paths to the .in and .r Aleae files")
     a_to_m_parser.add_argument("-p", "--pipeline_enable", action='store_true', help="Enable pipelined Execution of file conversion")
-    a_to_m_parser.add_argument("-e", "--error_check_enable", action='store_true', help="Enable pre-conversion error checking of Aleae Files")
     a_to_m_parser.add_argument("-o", "--output", action='store', required=True, help="Path to new or preexisting MARlea file")
     a_to_m_parser.add_argument("--waste", action='store', required=False, help="A chemical that is the waste products of reactions")
     a_to_m_parser.add_argument("--aether", action='store', nargs='*', help="A list of chemicals that enable continous production of other chemicals")
@@ -1090,7 +1076,6 @@ def scan_args():
     m_to_a_parser = subparsers.add_parser("m-to-a", usage="Convert MARlea files into Aleae files", help="Convert MARlea file to Aleae equivalents")
     m_to_a_parser.add_argument("-i", "--input", action='store', required=True, help="Paths to .csv MARlea file")
     m_to_a_parser.add_argument("-p", "--pipeline_enable", action='store_true', help="Enable pipelined Execution of file conversion")
-    m_to_a_parser.add_argument("-e", "--error_check_enable", action='store_true', help="Enable pre-conversion error checking of Aleae Files")
     m_to_a_parser.add_argument("-o", "--output", action='store', nargs=2, required=True, help="Paths to new or preexisting .in and .r Aleae files")
     m_to_a_parser.add_argument("--waste", action='store', required=False, help="A chemical that is the waste products of reactions")
     m_to_a_parser.add_argument("--aether", action='store', nargs='*', help="A list of chemicals that enable continous production of other chemicals")
@@ -1102,21 +1087,6 @@ def scan_args():
     input_mode = parsed_args.command
 
     if input_mode != "gui":
-        error_check_enable = parsed_args.error_check_enable
-
-        if not error_check_enable:
-            proceed = input("Error checking was not enabled. Any errors in your input files will cause unintended results.\n "
-                            + "Proceed with error checking enabled? (Y/n): ")
-            while proceed.strip().lower() != "y" and proceed.strip().lower() != "n":
-                proceed = input("Invalid input: Proceed with error checking enabled? (Y/n): ")
-                if proceed.strip().lower() == "y":
-                    error_check_enable = True
-                elif proceed.strip().lower() != "n":
-                    print("Invalid keyboard input.")
-
-            if proceed.strip().lower() == "y":
-                error_check_enable = True
-
         if parsed_args.waste is not None:
             waste_local = parsed_args.waste
 
@@ -1147,11 +1117,6 @@ def scan_args():
             print("Error: Invalid output file type")
             exit(-1)
 
-        # if error_check_enable:
-        #     if not check_aleae_files(aleae_in_filename, aleae_r_filename):
-        #         exit(0)
-        #     print("No errors were found. Beginning file conversion.")
-
         start_a_to_m_conversion(aleae_in_filename, aleae_r_filename, marlea_filename, waste_local, aether_local,
                          pipeline_enabled)
     elif input_mode == "m-to-a":
@@ -1169,11 +1134,6 @@ def scan_args():
         if ".csv" not in marlea_filename:
             print("Error: Invalid input file type")
             exit(-1)
-
-        # if error_check_enable:
-        #     if not check_marlea_file(marlea_filename):
-        #         exit(0)
-        #     print("No errors were found. Beginning file conversion.")
 
         start_m_to_a_conversion(aleae_in_filename, aleae_r_filename, marlea_filename, waste_local, aether_local,
                          pipeline_enabled)
