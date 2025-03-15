@@ -1,6 +1,6 @@
 """
 Name: AwesomeNova
-Updated at: 10/18/2024
+Updated at: 3/15/2025
 
 Script for converting Aleae files into MARlea ones and vice versa via sequential or pipelined execution. Please read the
 README to learn how to use it. The script checks for whether an input file given to it is valid, specified by the
@@ -17,7 +17,8 @@ import sys
 import csv
 import queue
 import tkinter
-from enum import IntEnum
+import re
+from enum import IntEnum, StrEnum
 from threading import Thread
 from tkinter import Tk, ttk, StringVar, BooleanVar, filedialog, messagebox
 
@@ -85,7 +86,6 @@ gui_m_to_a_marlea_file = ""
 gui_m_to_a_aleae_file_in = ""
 gui_m_to_a_aleae_file_r = ""
 
-gui_error_check_enable=BooleanVar()
 gui_pipeline_enable=BooleanVar()
 
 gui_waste=StringVar()
@@ -191,9 +191,7 @@ m_to_a_check = ttk.Radiobutton(button_frame, text='MARlea to Aleae', variable=gu
 a_to_m_check.grid(column=0, row=1, sticky=tkinter.SW)
 m_to_a_check.grid(column=0, row=2, sticky=tkinter.SW)
 
-error_check_widget = ttk.Checkbutton(button_frame, text="Enable error checking", variable=gui_error_check_enable, onvalue=True, offvalue=False)
 pipeline_widget = ttk.Checkbutton(button_frame, text="Enable pipelined execution", variable=gui_pipeline_enable, onvalue=True, offvalue=False)
-error_check_widget.grid(column=0, row=5, sticky=tkinter.SW)
 pipeline_widget.grid(column=0, row=6, sticky=tkinter.SW)
 
 waste_aether_label.grid(column=2, row=0)
@@ -217,11 +215,6 @@ def gui_start_conversion():
         messagebox.showerror(title="Invalid waste term", message="Please enter only one waste term. No commas or '//' strings.")
         return
 
-    if not gui_error_check_enable.get():
-       messagebox.askyesno(message='Error checking was not enabled. Any errors in your input files will cause unintended results.\nProceed with error checking enabled?',
-        icon = 'warning',
-        title = 'Warning', )
-
     if gui_input_mode.get() == "a-to-m":
         global gui_a_to_m_aleae_file_in
         global gui_a_to_m_aleae_file_r
@@ -231,8 +224,6 @@ def gui_start_conversion():
             messagebox.showerror(title="Missing files", message="All files need to be entered.")
             return
         else:
-            if gui_error_check_enable.get():
-                check_aleae_files(gui_a_to_m_aleae_file_in, gui_a_to_m_aleae_file_r)
             start_a_to_m_conversion(gui_a_to_m_aleae_file_in, gui_a_to_m_aleae_file_r, gui_a_to_m_marlea_file,
                                     gui_waste.get(), gui_aether.get(), gui_pipeline_enable.get())
     elif gui_input_mode.get() == "m-to-a":
@@ -242,13 +233,10 @@ def gui_start_conversion():
             messagebox.showerror(title="Missing files", message="All files need to be entered.")
             return
         else:
-            if gui_error_check_enable.get():
-                check_marlea_file(gui_m_to_a_marlea_file)
             start_m_to_a_conversion(gui_m_to_a_aleae_file_in, gui_m_to_a_aleae_file_r, gui_m_to_a_marlea_file,
                                     gui_waste.get(), gui_aether.get(), gui_pipeline_enable.get())
 
     messagebox.showinfo(title="Conversion Complete", message="Input files have been converted.")
-    # exit(0)
 
 
 confirm_btn = ttk.Button(gui_root, text="Start Conversion", command=gui_start_conversion)
@@ -284,6 +272,448 @@ def remove_empty_str_elems(lst):
     return [i for i in lst if i != ""]
 
 
+class NodeEnum(StrEnum):
+    EQUATION = "EQUATION"
+    FIELD = "FIELD"
+    RATE = "RATE"
+    TERM = "TERM"
+    COEFF = "COEFF"
+    CHEM = "CHEM"
+    FIELD_SEP = "FIELD_SEP"
+    TERM_SEP = "TERM_SEP"
+    MARLEA_NULL = "MARLEA_NULL"
+    MARLEA_ARROW = "MARLEA_ARROW"
+
+
+class AleaeMARLeaNode:
+    def __init__(self, type, value, children):
+        self.type = type
+        self.value = value
+        self.children = children
+
+
+class Tokenizer:
+    def __init__(self, line):
+        self.line = line
+        self.equ = self.line.strip().split()
+        self.tokens = []
+        self.cursor = 0
+
+    def tokenize(self):
+        pass
+
+    def investigate(self, msg, token):
+        print(msg, token, "from", self.line.strip())
+
+    def check_token_at_cursor(self, offset):
+        return self.tokens[self.cursor+offset]
+
+    def get_cursor_pos(self):
+        return self.cursor
+
+    def set_cursor_pos(self, pos):
+        self.cursor = pos
+
+    def move_cursor_by_offset(self, offset):
+        self.cursor += offset
+
+    def peek_next_token(self):
+        if self.cursor < len(self.tokens):
+            token = self.tokens[self.cursor]
+            return token
+        return None
+
+    def get_next_token(self):
+        token = self.peek_next_token()
+        if token is not None:
+            self.cursor += 1
+        return token
+
+
+class Parser:
+    def __init__(self, line, tokenizer):
+        self.tokenizer = tokenizer
+        self.line = line
+
+    def expect(self, arg):
+        token = self.tokenizer.peek_next_token()
+        if token is not None and token[0] == arg:
+            return self.tokenizer.get_next_token()
+        return None
+
+    def tokenize(self):
+        return self.tokenizer.tokenize()
+
+    def investigate(self, msg, pos0='', pos1=''):
+        if pos0 == '':
+            print(msg, self.line)
+        elif pos1 == '':
+            print(msg, "'"+pos0+"'", "from", self.line)
+        else:
+            print(msg, "'"+pos0+" "+pos1+"'", "from", self.line)
+
+    def parse_line(self):
+        return self.equation()
+
+    @staticmethod
+    def construct_line(root):
+        pass
+
+    def __create_term(self, child0, child1=None):
+        if child1 is None:
+            return AleaeMARLeaNode(NodeEnum.TERM, None, [child0])
+        return AleaeMARLeaNode(NodeEnum.TERM, None, [child0, child1])
+
+    def equation(self):
+        pass
+
+    def field(self, sub_root):
+        pass
+
+
+class AleaeTokenizer(Tokenizer):
+    def __init__(self, line):
+        super().__init__(line)
+
+    def tokenize(self):
+        num_field_sep = 0
+        for token in self.equ:
+            if re.fullmatch(r'\d+', token.strip()) is not None and num_field_sep < 2:
+                self.tokens.append((NodeEnum.COEFF, token.strip()))
+            elif re.fullmatch(r'\d+', token.strip()) is not None:
+                self.tokens.append((NodeEnum.RATE, token.strip()))
+            elif (re.fullmatch(rf'{MARLEA_ARROW}', token.strip()) is not None
+                  or re.fullmatch(rf'{MARLEA_NULL}', token.strip()) is not None):
+                self.investigate("Invalid use of MARLEA symbols:", token.strip())
+                return False
+            elif re.fullmatch(rf'{ALEAE_FIELD_SEPARATOR}', token.strip()) is not None:
+                self.tokens.append((NodeEnum.FIELD_SEP, token.strip()))
+                num_field_sep += 1
+            elif re.fullmatch(r'[^+: ]+', token.strip()) is not None:
+                self.tokens.append((NodeEnum.CHEM, token.strip()))
+            elif re.fullmatch(rf'\d+{ALEAE_FIELD_SEPARATOR}', token.strip()) is not None:
+                self.tokens.append((NodeEnum.COEFF, token.strip().strip(ALEAE_FIELD_SEPARATOR)))
+                self.tokens.append((NodeEnum.FIELD_SEP, token.strip(r'\d+')))
+                num_field_sep += 1
+            elif re.fullmatch(rf'{ALEAE_FIELD_SEPARATOR}[^+: ]+', token.strip()) is not None:
+                self.tokens.append((NodeEnum.FIELD_SEP, token.strip(r'[^+ ]+')))
+                self.tokens.append((NodeEnum.CHEM, token.strip().strip(ALEAE_FIELD_SEPARATOR)))
+                num_field_sep += 1
+            elif re.fullmatch(rf'\d+{ALEAE_FIELD_SEPARATOR}[^+: ]+', token.strip()) is not None:
+                self.tokens.append((NodeEnum.COEFF, re.sub(rf'(\d+){ALEAE_FIELD_SEPARATOR}([^+: ]+)', r'\1', token.strip())))
+                self.tokens.append((NodeEnum.FIELD_SEP, re.sub(rf'\d+{ALEAE_FIELD_SEPARATOR}[^+: ]+', ALEAE_FIELD_SEPARATOR, token.strip())))
+                self.tokens.append((NodeEnum.CHEM, re.sub(rf'(\d+){ALEAE_FIELD_SEPARATOR}[^+: ]+)', r'\2', token.strip())))
+                num_field_sep += 1
+            else:
+                self.investigate("Unrecognized symbol:", "'"+token.strip()+"'")
+                return False
+        return True
+
+
+class AleaeParser(Parser):
+    def __init__(self, line, all_chems):
+        super().__init__(line, AleaeTokenizer(line))
+        self.all_chems = all_chems
+
+    def parse_line(self):
+        return self.equation()
+
+    @staticmethod
+    def construct_line(root):
+        new_equ = ''
+        for child in root.children:
+            if child.type == NodeEnum.RATE:
+                new_equ += child.value
+            elif child.type == NodeEnum.FIELD:
+                temp = child.children
+                while temp is not None:
+                    new_equ += temp.value[0][1] + " " + temp.value[1][1] + " "
+                    temp = temp.children
+                new_equ += ": "
+
+        return new_equ
+
+    @staticmethod
+    def convert_tree_to_marlea(old_root, waste='', aether=[]):
+        new_root = AleaeMARLeaNode(NodeEnum.EQUATION, None, [])
+
+        for i in range(ReactionParts.NUM_FIELDS.value - 1):
+            field = old_root.children[i]
+            new_root.children.append(AleaeMARLeaNode(NodeEnum.FIELD, None, None))
+            new_root.children[i].children = AleaeMARLeaNode(NodeEnum.TERM, None, None)
+            temp_term = field.children
+            new_node = new_root.children[i].children
+            while temp_term is not None:
+                if temp_term.value[0][1] in set(aether) and i == 0 or temp_term.value[0][1] == waste:
+                    new_root.children[i].children = AleaeMARLeaNode(NodeEnum.MARLEA_NULL, MARLEA_NULL, None)
+                elif temp_term.value[0][1] not in set(aether):
+                    if temp_term.value[1][1] == '1': new_node.value = None, temp_term.value[0]
+                    else: new_node.value = temp_term.value[1], temp_term.value[0]
+
+                    if temp_term.children is not None:
+                        new_node.children = AleaeMARLeaNode(NodeEnum.TERM, None, None)
+                        new_node = new_node.children
+                temp_term = temp_term.children
+        return new_root
+
+
+    def equation(self):
+        root = AleaeMARLeaNode(NodeEnum.EQUATION, self.line, [])
+        sep_pos = []
+
+        while self.tokenizer.peek_next_token() is not None:
+            token = self.expect(NodeEnum.FIELD_SEP)
+            if token is not None:
+                sep_pos.append(self.tokenizer.get_cursor_pos() - 1)
+            else:
+                self.tokenizer.move_cursor_by_offset(1)
+
+        if len(sep_pos) != 2:
+            self.investigate("Invalid use of field separators:", self.tokenizer.tokens[sep_pos[len(sep_pos)-1]][1])
+            return None
+
+        if len(self.tokenizer.tokens) < sep_pos[1] + 2:
+            self.investigate("Empty rate field")
+            return None
+        elif self.tokenizer.get_cursor_pos() > sep_pos[1] + 2 or not self.tokenizer.tokens[sep_pos[1]+1][1].isnumeric():
+            self.investigate("Invalid rate field:", self.tokenizer.tokens[sep_pos[1]+1][1])
+            return None
+
+        root.children.append(AleaeMARLeaNode(NodeEnum.FIELD, None, None))
+        root.children.append(AleaeMARLeaNode(NodeEnum.FIELD, None, None))
+        root.children.append(AleaeMARLeaNode(NodeEnum.RATE, self.tokenizer.tokens[sep_pos[1]+1][1], None))
+        self.tokenizer.set_cursor_pos(0)
+
+        if not self.field(root.children[0]): return None
+        self.tokenizer.set_cursor_pos(sep_pos[0] + 1)
+        if not self.field(root.children[1]): return None
+
+        return root
+
+
+    def field(self, sub_root):
+        first_term = AleaeMARLeaNode(NodeEnum.TERM, None, None)
+
+        cur_term = first_term
+        token0, token1 = self.expect(NodeEnum.CHEM), self.expect(NodeEnum.COEFF)
+        while token0 is not None and token1 is not None:
+            if token0[1] not in self.all_chems:
+                self.investigate("Chem missing in .in file:", self.tokenizer.check_token_at_cursor(-2)[1])
+                return False
+
+            cur_term.value = token0, token1
+            token0, token1 = self.expect(NodeEnum.CHEM), self.expect(NodeEnum.COEFF)
+            if token0 is not None and token1 is not None:
+                cur_term.children = AleaeMARLeaNode(NodeEnum.TERM, None, None)
+                cur_term = cur_term.children
+
+        test_token = self.tokenizer.peek_next_token()
+        if test_token is None or test_token[0] != NodeEnum.FIELD_SEP:
+            self.investigate("Invalid term:", self.tokenizer.check_token_at_cursor(-1)[1],
+                             self.tokenizer.check_token_at_cursor(0)[1])
+            return False
+
+        sub_root.children = first_term
+        return True
+
+
+class MARleaTokenizer(Tokenizer):
+    def __init__(self, line):
+        super().__init__(line)
+
+    def tokenize(self):
+        num_marlea_nulls = 0
+
+        for i, token in enumerate(self.equ):
+            if re.fullmatch(f'{MARLEA_ARROW}', token.strip()) is not None:
+                self.tokens.append((NodeEnum.MARLEA_ARROW, token.strip()))
+            elif re.fullmatch(f'{MARLEA_NULL}', token.strip()) is not None:
+                self.tokens.append((NodeEnum.MARLEA_NULL, token.strip()))
+                num_marlea_nulls += 1
+            elif re.fullmatch(f'[{MARLEA_TERM_SEPARATOR}]', token.strip()) is not None:
+                self.tokens.append((NodeEnum.TERM_SEP, token.strip()))
+            elif re.fullmatch(r'\d+', token.strip()) is not None:
+                self.tokens.append((NodeEnum.COEFF, token.strip()))
+            elif re.fullmatch(r'[^+: ]+', token.strip()) is not None:
+                self.tokens.append((NodeEnum.CHEM, token.strip()))
+            else:
+                self.investigate("Unrecognized symbol:", "'"+token.strip()+"'")
+                return False
+        return True
+
+
+class MARleaParser(Parser):
+    def __init__(self, line):
+        super().__init__(line, MARleaTokenizer(line))
+        self.found_chems = set()
+
+    def parse_line(self):
+        return self.equation()
+
+    @staticmethod
+    def construct_line(root):
+        new_equ = ''
+
+        for i, field in enumerate(root.children):
+            temp = field.children
+            while temp is not None:
+                if temp.type == NodeEnum.MARLEA_NULL:
+                    new_equ += temp.value
+                elif temp.value[0] is not None:
+                    new_equ += temp.value[0][1] + " " + temp.value[1][1]
+                else:
+                    new_equ += temp.value[1][1]
+
+                temp = temp.children
+                if temp is not None: new_equ += " + "
+
+            if i < 1: new_equ += " => "
+
+        return new_equ
+
+    @staticmethod
+    def convert_tree_to_aleae(old_root, rate, waste='', aether=[]):
+        new_root = AleaeMARLeaNode(NodeEnum.EQUATION, None, [])
+
+        aether_found = False
+        for i in range(ReactionParts.NUM_FIELDS.value - 1):
+            field = old_root.children[i]
+            new_root.children.append(AleaeMARLeaNode(NodeEnum.FIELD, None, None))
+            new_root.children[i].children = AleaeMARLeaNode(NodeEnum.TERM, None, None)
+            temp_term = field.children
+            new_node = new_root.children[i].children
+            while temp_term is not None:
+                if temp_term.type == NodeEnum.MARLEA_NULL:
+                    if i == ReactionParts.REACTANTS.value and len(aether) > 0:
+                        new_node.value = (NodeEnum.CHEM, aether[0]), (NodeEnum.COEFF, '1')
+                        aether_found = True
+                    elif i == ReactionParts.PRODUCTS.value and waste != '':
+                        new_node.value = (NodeEnum.CHEM, waste), (NodeEnum.COEFF, '1')
+                else:
+                    if aether_found:
+                        new_node.value = (NodeEnum.CHEM, aether[0]), (NodeEnum.COEFF, '1')
+                        aether_found = False
+                        new_node.children = AleaeMARLeaNode(NodeEnum.TERM, None, None)
+                        new_node = new_node.children
+
+                    if temp_term.value[0] is None:
+                        new_node.value = temp_term.value[1], (NodeEnum.COEFF, "1")
+                    else:
+                        new_node.value = temp_term.value[1], temp_term.value[0]
+
+                if temp_term.children is not None:
+                    new_node.children = AleaeMARLeaNode(NodeEnum.TERM, None, None)
+                    new_node = new_node.children
+                temp_term = temp_term.children
+
+        new_root.children.append(AleaeMARLeaNode(NodeEnum.RATE, rate, None))
+        return new_root
+
+
+    def equation(self):
+        root = AleaeMARLeaNode(NodeEnum.EQUATION, self.line, [])
+        sep_pos = 0
+        num_marlea_arrows = 0
+
+        while self.tokenizer.peek_next_token() is not None:
+            token = self.expect(NodeEnum.MARLEA_ARROW)
+            if token is not None:
+                sep_pos = self.tokenizer.get_cursor_pos() - 1
+                num_marlea_arrows += 1
+            else:
+                self.tokenizer.move_cursor_by_offset(1)
+
+        if num_marlea_arrows != 1:
+            self.investigate("Invalid or missing use of MARlea arrow:", self.tokenizer.tokens[sep_pos][1])
+            return None
+
+        root.children.append(AleaeMARLeaNode(NodeEnum.FIELD, None, None))
+        root.children.append(AleaeMARLeaNode(NodeEnum.FIELD, None, None))
+        self.tokenizer.set_cursor_pos(0)
+
+        if not self.field(root.children[0]): return None
+        self.tokenizer.set_cursor_pos(sep_pos + 1)
+        if not self.field(root.children[1]): return None
+
+        return root
+
+
+    def field(self, sub_root):
+        token = self.tokenizer.peek_next_token()
+        if token is None or token[0] == NodeEnum.MARLEA_ARROW:
+            self.investigate("Empty field")
+            return False
+
+        null_token = self.expect(NodeEnum.MARLEA_NULL)
+        if null_token is not None:
+            sub_root.children = AleaeMARLeaNode(NodeEnum.MARLEA_NULL, MARLEA_NULL, None)
+
+            token0, token1 = self.expect(NodeEnum.MARLEA_ARROW), self.expect(NodeEnum.MARLEA_NULL)
+            if token0 is None and self.tokenizer.get_cursor_pos() < len(self.tokenizer.tokens) or token1 is not None:
+                self.investigate("Invalid use of MARlea NULL:", self.tokenizer.check_token_at_cursor(-1)[1])
+                return False
+            else: return True
+
+        test_token = self.expect(NodeEnum.TERM_SEP)
+        if test_token is not None:
+            self.investigate("Invalid use of term seperator:", self.tokenizer.check_token_at_cursor(-1)[1])
+            return False
+
+        first_term = AleaeMARLeaNode(NodeEnum.TERM, None, None)
+
+        cur_term = first_term
+        token0 = self.expect(NodeEnum.CHEM)
+        token1, token2 = None, None
+        if token0 is None:
+            token1, token2 = self.expect(NodeEnum.COEFF), self.expect(NodeEnum.CHEM)
+        token_aux = self.expect(NodeEnum.TERM_SEP)
+
+        while token0 is not None or token1 is not None or token2 is not None:
+            if token0 is not None:
+                cur_term.value = None, token0
+                self.found_chems.add(token0[1])
+            elif token1 is not None and token2 is not None:
+                if token1[1] == "1":
+                    self.investigate("Invalid term:", self.tokenizer.check_token_at_cursor(-3)[1],
+                                     self.tokenizer.check_token_at_cursor(-2)[1])
+                    return False
+                else:
+                    cur_term.value = token1, token2
+                self.found_chems.add(token2[1])
+            elif token1 is None or token2 is None:
+                self.investigate("Invalid term:", self.tokenizer.check_token_at_cursor(-2)[1],
+                                 self.tokenizer.check_token_at_cursor(-1)[1])
+                return False
+
+            test_token = self.tokenizer.peek_next_token()
+            if test_token is not None and test_token[0] == NodeEnum.MARLEA_NULL:
+                self.investigate("Invalid use of MARlea NULL:", self.tokenizer.check_token_at_cursor(0)[1])
+                return False
+
+            if token_aux is not None:
+                if test_token is None or test_token[0] == NodeEnum.TERM_SEP:
+                    self.investigate("Invalid use of term separator:", self.tokenizer.check_token_at_cursor(-1)[1])
+                    return False
+                elif test_token is not None:
+                    cur_term.children = AleaeMARLeaNode(NodeEnum.TERM, None, None)
+                    cur_term = cur_term.children
+            else:
+                if (test_token is not None and test_token[0] != NodeEnum.MARLEA_ARROW
+                        and self.tokenizer.get_cursor_pos() < len(self.tokenizer.tokens)):
+                    self.investigate("Invalid term:", self.tokenizer.check_token_at_cursor(-1)[1],
+                                     self.tokenizer.check_token_at_cursor(0)[1])
+                    return False
+
+            token0 = self.expect(NodeEnum.CHEM)
+            token1, token2 = None, None
+            if token0 is None:
+                token1, token2 = self.expect(NodeEnum.COEFF), self.expect(NodeEnum.CHEM)
+            token_aux = self.expect(NodeEnum.TERM_SEP)
+
+        sub_root.children = first_term
+        return True
+
+
 def check_aleae_in_line(in_line):
     """
     Checks whether a line is a valid initialization statement within an Aleae .in file
@@ -292,7 +722,7 @@ def check_aleae_in_line(in_line):
     """
     threshold_sym = {"LE", "LT", "GE", "GT", "N"}
     if len(in_line) >= 4:
-        print(".in line not three elements: ", in_line)
+        print(".in line not three or four elements: ", in_line)
         return False
     elif in_line[0].strip().isnumeric():
         print("Chem can't be a number: ", in_line)
@@ -300,7 +730,7 @@ def check_aleae_in_line(in_line):
     elif not in_line[1].strip().isnumeric():
         print("Amount must be an integer:", in_line)
         return False
-    elif in_line[2] not in threshold_sym:
+    elif in_line[2].strip() not in threshold_sym:
         print("Invalid threshold: ", in_line)
         return False
     elif len(in_line) > 3:
@@ -310,90 +740,6 @@ def check_aleae_in_line(in_line):
         elif in_line[2] in threshold_sym and not in_line[3].strip().isnumeric():
             print("Invalid threshold value: ", in_line)
             return False
-    return True
-
-
-def check_aleae_r_line(r_line, chems):
-    """
-    Checks whether a line is a valid reaction statement within an Aleae .r file
-    :param r_line: a list containing the elements of an Aleae initialization statement
-    :param chems: a set containing all chemicals that are found in the .in file
-    :return: True if line is valid or False if it detects an error
-    """
-    if len(r_line) != 3:
-        print("Aleae reactions need three fields: ", r_line)
-        return False
-    if not r_line[2].strip().isnumeric():
-        print("Rate must be a number: ", r_line[2].strip())
-        return False
-
-    for i in range(2):
-        temp_field = r_line[i].strip().split()
-        if len(temp_field) % 2 == 1:
-            print("Invalid reaction format: ", r_line)
-            return False
-        for j in range(0, len(temp_field), 2):
-            if temp_field[j].strip().isnumeric() or not temp_field[j + 1].strip().isnumeric():
-                print("invalid term: " + temp_field[j] + " " + temp_field[j + 1])
-                return False
-            elif temp_field[j].strip() not in chems:
-                print("Chem in Aleae reaction is not initialized: ", temp_field[j])
-                return False
-    return True
-
-
-def check_aleae_files(aleae_in_filename, aleae_r_filename):
-    """
-    Checks whether all line in both Aleae files are valid
-    :param aleae_in_filename: name of Aleae .in file
-    :param aleae_r_filename: name of Aleae .r file
-    :return: True if both files contains valid lines or False if it detects an error in either file
-    """
-    f_init = open_file_read(aleae_in_filename)
-    if f_init is None:
-        print(".in file failed to be opened.")
-        return False
-
-    line_counter = 1
-    chems = set()                                           # Tracks all discovered chems
-    temp = f_init.readline()
-    while temp != "":
-        temp_line = temp.strip().split()
-        if len(temp_line) < 1:                              # Skip empty lines
-            temp = f_init.readline()
-            line_counter += 1
-            continue
-        if not check_aleae_in_line(temp_line):
-            f_init.close()
-            print("Syntax error at line", line_counter, "in", aleae_in_filename + ": ", temp.strip('\n'))
-            return False
-
-        line_counter += 1
-        chems.add(temp_line[0])                             # Found a chemical
-        temp = f_init.readline()
-    f_init.close()
-
-    f_react = open_file_read(aleae_r_filename)
-    if f_react is None:
-        print(".r file failed to be opened.")
-        return False
-
-    line_counter = 1
-    temp = f_react.readline()
-    while temp != "":
-        temp_line = temp.strip().split(ALEAE_FIELD_SEPARATOR)
-        if len(temp_line) < 1:                                  # Skip empty lines
-            temp = f_react.readline()
-            line_counter += 1
-            continue
-        elif not check_aleae_r_line(temp_line, chems):
-            f_react.close()
-            print("Syntax error at line", line_counter, "in", aleae_r_filename + ": ", temp.strip('\n'))
-            return False
-        line_counter += 1
-        temp = f_react.readline()
-    f_react.close()
-
     return True
 
 
@@ -416,112 +762,6 @@ def check_marlea_init(row_in):
     return False
 
 
-def check_marlea_reaction(row_r):
-    """
-    Checks whether a row is a valid reaction statement within a MARlea file
-    :param row_r: a list containing the elements of an MARlea reaction statement
-    :return: True if line is valid or False if it detects an error
-    """
-    terms = ["", ""]
-    if MARLEA_ARROW in row_r[0]:
-        reaction = row_r[0].strip().split(MARLEA_ARROW)
-
-        if len(reaction) == 2:
-            terms[0] = reaction[0].strip().split(MARLEA_TERM_SEPARATOR)     # Get reactant terms
-            terms[1] = reaction[1].strip().split(MARLEA_TERM_SEPARATOR)     # Get product terms
-        else:
-            print("Reactants and products must be separated by '=>'")
-            return False
-
-        if len(terms[0]) > 1 and "NULL" in set(terms[0]):
-            print("Improper use of the NULL keyword in reaction statement")
-            return False
-        elif len(terms[1]) > 1 and "NULL" in set(terms[1]):
-            print("Improper use of the NULL keyword in reaction statement")
-            return False
-    else:
-        return False
-
-    for i in range(2):
-        for elem in terms[i]:
-            tmp = elem.strip().split()
-            if len(tmp) < 1:                                    # Result of a trailing/leading '+' symbol in a reaction
-                print("Misuse of a term separator")
-                return False
-            elif len(terms[i]) > 1 and MARLEA_NULL in tmp[0]:
-                print("Improper use of the NULL keyword in MARlea reaction statement")
-                return False
-            elif len(tmp) < 2 and tmp[0].strip().isnumeric():
-                print("Coefficients cannot be in a term without a chemical")
-                return False
-            elif len(tmp) == 2:
-                if tmp[1].strip().isnumeric() or not tmp[0].strip().isnumeric():
-                    print("Coefficients cannot be in a term without a chemical")
-                    return False
-                elif "NULL" in tmp[1].strip() or MARLEA_NULL in tmp[0].strip():
-                    print("NULL keywords can only be in either the reactant or product side")
-                    return False
-                elif tmp[0] == '1':
-                    print("Explicit coefficients in MARlea cannot be one")
-                    return False
-            elif len(tmp) > 2:
-                print("Terms can only contain a chemical and its coefficient")
-                return False
-    return True
-
-
-def check_marlea_row(row):
-    """
-    Checks whether a line is a valid initialization statement within an Aleae .in file
-    :param row: a list containing the elements of an MARlea row
-    :return: True if line is valid or False if it detects an error
-    """
-    if row[0] == "" and row[1] == "":
-        return True
-    elif "//" in row[1]:                                    # Skip comments unless they're invalid
-        if row[0] != "":
-            return False
-        return True
-    elif "//" in row[0]:
-        if row[1] != "":
-            return False
-        return True
-    elif not row[1].strip().isnumeric():
-        return False
-    elif MARLEA_ARROW in row[0]:                            # Detect reaction statement and check
-        return check_marlea_reaction(row)
-    elif MARLEA_TERM_SEPARATOR in row[0]:
-        return False
-    else:
-        return check_marlea_init(row)                       # No reaction statement detected, so it must be an init statement
-
-
-def check_marlea_file(MARlea_input_filename):
-    """
-    Checks whether all line in a MARlea files are valid
-    :param aleae_in_filename: name of Aleae .in file
-    :return: True if the file contains valid rows or False if it detects an error in the file
-    """
-    f_MARlea_input = open_file_read(MARlea_input_filename)
-    if f_MARlea_input is None:
-        print("MARlea file failed to be opened.")
-        return False
-
-    line_counter = 1
-    reader = csv.reader(f_MARlea_input, "excel")
-    for row in reader:
-        if len(row) < 1:                                    # Skip empty lines
-            line_counter += 1
-            continue
-        elif not check_marlea_row(row):
-            f_MARlea_input.close()
-            print("Syntax error at line", line_counter, "in", MARlea_input_filename + ":", row)
-            return False
-        line_counter += 1
-    f_MARlea_input.close()
-    return True
-
-
 def read_aleae_in_file(aleae_in_filename, aether):
     """
     Read each line from an Aleae input file, pre-process it if needed, and send it to a writer via a queue
@@ -537,13 +777,21 @@ def read_aleae_in_file(aleae_in_filename, aether):
     temp = f_init.readline()
     while temp != "":                                                           # Convert .in file to beginning of MARlea file
         temp_row = temp.split(" ")
-        if temp_row[1] != "0" and temp_row[0] not in set(aether):
-            input_file_reader_to_output_writer_queue.put(temp_row[:2])
-        temp = f_init.readline()
+        if check_aleae_in_line(temp_row):
+            input_file_reader_to_converter_auxilliary_queue.put(temp_row[0])
+
+            if temp_row[1] != "0" and temp_row[0] not in set(aether):
+                input_file_reader_to_output_writer_queue.put(temp_row[:2])
+            temp = f_init.readline()
+        else:
+            print("Conversion has been halted. Any output MARlea file is considered unsuitable to run.")
+            input_file_reader_to_converter_auxilliary_queue.put(END_PROCEDURE)
+            input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
 
     f_init.close()
 
     input_file_reader_to_output_writer_queue.put([])
+    input_file_reader_to_converter_auxilliary_queue.put(END_PROCEDURE)
     input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
 
 
@@ -573,40 +821,34 @@ def aleae_to_marlea_converter(waste, aether):
     :param waste: a specified chemical that will be converted to a NULL in the products
     :param aether: list of chemicals that will be converted to a NULL in the reactants
     """
+
+    all_chems = set()
+    temp = input_file_reader_to_converter_auxilliary_queue.get()
+    while temp != END_PROCEDURE:                                            # Get all chems to feed to the parser
+        all_chems.add(temp)
+        temp = input_file_reader_to_converter_auxilliary_queue.get()
+
     temp = input_file_reader_to_converter_queue.get()
     while temp != END_PROCEDURE:
-        converted_reaction = []
-        temp_row = temp.split(ALEAE_FIELD_SEPARATOR)                            # Split reactants, products, and rates into elements of list called temp_row
+        a_parser = AleaeParser(temp, all_chems)
+        if not a_parser.tokenize():                                         # Tokenize the reaction
+            print("Conversion has been halted. Any output MARlea file is considered unsuitable to run.")
+            break
 
-        converted_reaction_str = ""
-        for i in range(ReactionParts.NUM_FIELDS.value):
-            chem_reaction = remove_empty_str_elems(temp_row[i].split(" "))      # Split reactants/products and their coefficients into elements of chem_reactiosn
-            if len(chem_reaction) > 1:
-                for j in range(0, len(chem_reaction), 2):
-                    (chem_reaction[j], chem_reaction[j + 1]) = (chem_reaction[j + 1], chem_reaction[j])
+        aleae_tree = a_parser.parse_line()                                  # Parse reaction
+        if aleae_tree is None:
+            print("Conversion has been halted. Any output MARlea file is considered unsuitable to run.")
+            break
 
-            if i == ReactionParts.REACTION_RATE.value:                          # Strip and add rate to converted reactions
-                chem_rate = chem_reaction[0].strip()
-                converted_reaction.append(converted_reaction_str.strip())
-                converted_reaction.append(" " + chem_rate)
-            else:
-                for k in range(len(chem_reaction)):                             # Convert reactant/product part of the reaction to MARlea
-                    if ((i == ReactionParts.REACTANTS.value and chem_reaction[k] in set(aether)) or
-                            (i == ReactionParts.PRODUCTS.value and chem_reaction[k] == waste)):
-                        chem_reaction[k] = MARLEA_NULL
-                        converted_reaction_str += chem_reaction[k] + " "
-                    elif not chem_reaction[k] in set(aether):
-                        if chem_reaction[k] != "1":
-                            converted_reaction_str += chem_reaction[k] + " "
-                        if chem_reaction[k] == waste:
-                            chem_reaction[k] = MARLEA_NULL
-                            converted_reaction_str += chem_reaction[k] + " "
-                        if not chem_reaction[k].isnumeric() and k < len(chem_reaction) - 1:
-                            converted_reaction_str += MARLEA_TERM_SEPARATOR + " "
-                if i == ReactionParts.REACTANTS.value:
-                    converted_reaction_str += MARLEA_ARROW + ' '
+        marlea_tree = AleaeParser.convert_tree_to_marlea(aleae_tree, waste, aether)     # Convert reaction
+        if marlea_tree is None:
+            print("Conversion has been halted. Any output MARlea file is considered unsuitable to run.")
+            break
 
-        converter_to_output_file_writer_queue_0.put(converted_reaction)
+        temp_list = temp.strip().split(ALEAE_FIELD_SEPARATOR)
+        converted_reaction = MARleaParser.construct_line(marlea_tree)
+        converter_to_output_file_writer_queue_0.put([converted_reaction," "+temp_list[2].strip()])
+
         temp = input_file_reader_to_converter_queue.get()
 
     converter_to_output_file_writer_queue_0.put(END_PROCEDURE)
@@ -629,7 +871,7 @@ def write_marlea_file(MARlea_output_filename):
 
     temp = converter_to_output_file_writer_queue_0.get()
     while temp != END_PROCEDURE:
-        writer.writerow(temp)                                               # Write processes line from converter
+        writer.writerow(temp)                                               # Write processed line from converter
         temp = converter_to_output_file_writer_queue_0.get()
 
     f_MARlea_output.close()
@@ -642,7 +884,6 @@ def read_marlea_file(MARlea_input_filename):
     """
     f_MARlea_input = open_file_read(MARlea_input_filename)
     if f_MARlea_input is None:
-        input_file_reader_to_converter_auxilliary_queue.put(END_PROCEDURE)
         input_file_reader_to_converter_queue.put(END_PROCEDURE)
         input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
         return
@@ -653,8 +894,12 @@ def read_marlea_file(MARlea_input_filename):
             if MARLEA_ARROW in row[0]:
                 input_file_reader_to_converter_queue.put(row)                # Send any reactions to the converter
             elif row[1] != "" and row[0] != "":
-                input_file_reader_to_output_writer_queue.put(row[0].strip() + " " + row[1].strip() + ' N\n')
-                input_file_reader_to_converter_auxilliary_queue.put(row)
+                if check_marlea_init(row):
+                    input_file_reader_to_output_writer_queue.put(row[0].strip() + " " + row[1].strip() + ' N\n')
+                    input_file_reader_to_converter_auxilliary_queue.put(row)
+                else:
+                    print("Conversion has been halted. Any output Aleae file is considered unsuitable to run.")
+                    break
 
     input_file_reader_to_converter_auxilliary_queue.put(END_PROCEDURE)
     input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
@@ -676,46 +921,31 @@ def marlea_to_aleae_converter(waste, aether):
 
     temp = input_file_reader_to_converter_queue.get()
     while temp != END_PROCEDURE:
-        chem_reaction_str = ""
-        temp_rate = temp[1].strip()
-        temp_reaction_pieces = temp[0].split(MARLEA_ARROW)                              # Split reactions into reactants and products
+        m_parser = MARleaParser(temp[0])                                                # Tokenize the reaction
+        if not m_parser.tokenize():
+            print("Conversion has been halted. Any output Aleae file is considered unsuitable to run.")
+            break
 
-        aether_loc_found = False
-        for j in range(ReactionParts.NUM_FIELDS.value - 1):                             # MARlea only contains two relevant fields: reaction and rate
-            temp_reaction_terms = temp_reaction_pieces[j].strip().split(MARLEA_TERM_SEPARATOR)  # Split reactants/products into terns
-            for k in range(len(temp_reaction_terms)):
-                temp_term = temp_reaction_terms[k].strip().split(" ")
+        marlea_tree = m_parser.parse_line()                                             # Parse reaction
+        if marlea_tree is None:
+            print("Conversion has been halted. Any output Aleae file is considered unsuitable to run.")
+            break
 
-                if temp_term[0] == MARLEA_NULL:                                         # Add aether or waste term depending on location of detected NULL
-                    if j == ReactionParts.REACTANTS.value:
-                        temp_term[0] = aether[0]
-                        aether_loc_found = True
-                    elif j == ReactionParts.PRODUCTS.value:
-                        temp_term[0] = waste
-                elif aether_loc_found and j == ReactionParts.PRODUCTS.value:
-                    chem_reaction_str += aether[0] + ' 1 '                              # Add aether term to reaction string
+        aleae_tree = MARleaParser.convert_tree_to_aleae(marlea_tree, temp[1], waste, aether)        # Convert reaction
+        if aleae_tree is None:
+            print("Conversion has been halted. Any output Aleae file is considered unsuitable to run.")
+            break
 
-                if len(temp_term) > 1:
-                    (temp_term[0], temp_term[1]) = (temp_term[1], temp_term[0])
-                    chem_reaction_str += temp_term[0] + " " + temp_term[1]
+        converted_reaction = AleaeParser.construct_line(aleae_tree)
+
+        for chem in m_parser.found_chems:
+            if chem not in set(found_chems.keys()):
+                if len(aether) > 0 and chem == aether[0]:                        # Add discovered chemical to found_chems
+                    found_chems[chem] = '1'
                 else:
-                    temp_term.append("1")                                               # Add '1' as coefficient if terms lacks one
-                    chem_reaction_str += temp_term[0] + ' 1'
-
-                if temp_term[0] not in set(found_chems.keys()):
-                    if len(aether) > 0 and temp_term[0] == aether[0]:             # Add discovered chemical to found_chems
-                        found_chems[temp_term[0]] = '1'
-                    else:
-                        found_chems[temp_term[0]] = '0'
-                    converter_to_output_file_writer_queue_0.put(temp_term[0].strip() + " " +
-                                                                found_chems[temp_term[0]].strip() + ' N\n')
-                chem_reaction_str += " "
-            if j == ReactionParts.REACTANTS.value:
-                chem_reaction_str += ALEAE_FIELD_SEPARATOR + " "
-
-        chem_reaction_str = chem_reaction_str.strip()
-        converter_to_output_file_writer_queue_1.put(chem_reaction_str + ' ' + ALEAE_FIELD_SEPARATOR
-                                                    + ' ' + temp_rate + '\n')
+                    found_chems[chem] = '0'
+                converter_to_output_file_writer_queue_0.put(chem + " " + found_chems[chem] + ' N\n')
+        converter_to_output_file_writer_queue_1.put(converted_reaction+"\n")
 
         temp = input_file_reader_to_converter_queue.get()
 
@@ -760,19 +990,6 @@ def write_aleae_r_file(aleae_r_filename):
         temp = converter_to_output_file_writer_queue_1.get()
 
     f_aleae_output_r.close()
-
-
-def run_error_checking(aleae_in_file, aleae_r_file, marlea_file):
-    print("Beginning file checking.")
-    if not os.path.isfile("error_checker.py"):
-        print("Error checker script not found. Is it named 'error_checker.py' "
-              + "and in the same directory as converter.py?")
-        return False
-    elif aleae_in_file is not None and aleae_r_file is not None:
-        return check_aleae_files(aleae_in_file, aleae_r_file)
-    elif marlea_file is not None:
-        return check_marlea_file(marlea_file)
-    exit(0)
 
 
 def start_a_to_m_conversion(aleae_in_filename, aleae_r_filename, marlea_filename, waste, aether, pipeline_enabled):
@@ -833,7 +1050,6 @@ def scan_args():
     input_files = []
     pipeline_enabled = False
     output_files = []
-    error_check_enable = False
 
     if sys.version_info.major < 3 and sys.version_info.minor < 8:
         print("Version of Python must be 3.8 or higher")
@@ -846,7 +1062,6 @@ def scan_args():
     a_to_m_parser = subparsers.add_parser("a-to-m", usage="Convert Aleae files into MARlea files", help="Convert Aleae files to an MARlea equivalent")
     a_to_m_parser.add_argument("-i", "--input", action='store', nargs=2, required=True, help="Paths to the .in and .r Aleae files")
     a_to_m_parser.add_argument("-p", "--pipeline_enable", action='store_true', help="Enable pipelined Execution of file conversion")
-    a_to_m_parser.add_argument("-e", "--error_check_enable", action='store_true', help="Enable pre-conversion error checking of Aleae Files")
     a_to_m_parser.add_argument("-o", "--output", action='store', required=True, help="Path to new or preexisting MARlea file")
     a_to_m_parser.add_argument("--waste", action='store', required=False, help="A chemical that is the waste products of reactions")
     a_to_m_parser.add_argument("--aether", action='store', nargs='*', help="A list of chemicals that enable continous production of other chemicals")
@@ -854,7 +1069,6 @@ def scan_args():
     m_to_a_parser = subparsers.add_parser("m-to-a", usage="Convert MARlea files into Aleae files", help="Convert MARlea file to Aleae equivalents")
     m_to_a_parser.add_argument("-i", "--input", action='store', required=True, help="Paths to .csv MARlea file")
     m_to_a_parser.add_argument("-p", "--pipeline_enable", action='store_true', help="Enable pipelined Execution of file conversion")
-    m_to_a_parser.add_argument("-e", "--error_check_enable", action='store_true', help="Enable pre-conversion error checking of Aleae Files")
     m_to_a_parser.add_argument("-o", "--output", action='store', nargs=2, required=True, help="Paths to new or preexisting .in and .r Aleae files")
     m_to_a_parser.add_argument("--waste", action='store', required=False, help="A chemical that is the waste products of reactions")
     m_to_a_parser.add_argument("--aether", action='store', nargs='*', help="A list of chemicals that enable continous production of other chemicals")
@@ -866,21 +1080,6 @@ def scan_args():
     input_mode = parsed_args.command
 
     if input_mode != "gui":
-        error_check_enable = parsed_args.error_check_enable
-
-        if not error_check_enable:
-            proceed = input("Error checking was not enabled. Any errors in your input files will cause unintended results.\n "
-                            + "Proceed with error checking enabled? (Y/n): ")
-            while proceed.strip().lower() != "y" and proceed.strip().lower() != "n":
-                proceed = input("Invalid input: Proceed with error checking enabled? (Y/n): ")
-                if proceed.strip().lower() == "y":
-                    error_check_enable = True
-                elif proceed.strip().lower() != "n":
-                    print("Invalid keyboard input.")
-
-            if proceed.strip().lower() == "y":
-                error_check_enable = True
-
         if parsed_args.waste is not None:
             waste_local = parsed_args.waste
 
@@ -911,11 +1110,6 @@ def scan_args():
             print("Error: Invalid output file type")
             exit(-1)
 
-        if error_check_enable:
-            if not check_aleae_files(aleae_in_filename, aleae_r_filename):
-                exit(0)
-            print("No errors were found. Beginning file conversion.")
-
         start_a_to_m_conversion(aleae_in_filename, aleae_r_filename, marlea_filename, waste_local, aether_local,
                          pipeline_enabled)
     elif input_mode == "m-to-a":
@@ -933,11 +1127,6 @@ def scan_args():
         if ".csv" not in marlea_filename:
             print("Error: Invalid input file type")
             exit(-1)
-
-        if error_check_enable:
-            if not check_marlea_file(marlea_filename):
-                exit(0)
-            print("No errors were found. Beginning file conversion.")
 
         start_m_to_a_conversion(aleae_in_filename, aleae_r_filename, marlea_filename, waste_local, aether_local,
                          pipeline_enabled)
