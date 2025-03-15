@@ -405,7 +405,7 @@ class AleaeTokenizer(Tokenizer):
                 self.tokens.append((NodeEnum.CHEM, re.sub(rf'(\d+){ALEAE_FIELD_SEPARATOR}[^+: ]+)', r'\2', token.strip())))
                 num_field_sep += 1
             else:
-                self.investigate("Unrecognized symbol", "'"+token.strip()+"'")
+                self.investigate("Unrecognized symbol:", "'"+token.strip()+"'")
                 return False
         return True
 
@@ -469,14 +469,14 @@ class AleaeParser(Parser):
                 self.tokenizer.move_cursor_by_offset(1)
 
         if len(sep_pos) != 2:
-            self.investigate("Invalid use of field seperators", self.tokenizer.tokens[sep_pos[len(sep_pos)-1]][1])
+            self.investigate("Invalid use of field separators:", self.tokenizer.tokens[sep_pos[len(sep_pos)-1]][1])
             return None
 
         if len(self.tokenizer.tokens) < sep_pos[1] + 2:
             self.investigate("Empty rate field")
             return None
         elif self.tokenizer.get_cursor_pos() > sep_pos[1] + 2 or not self.tokenizer.tokens[sep_pos[1]+1][1].isnumeric():
-            self.investigate("Invalid rate field", self.tokenizer.tokens[sep_pos[1]+1][1])
+            self.investigate("Invalid rate field:", self.tokenizer.tokens[sep_pos[1]+1][1])
             return None
 
         root.children.append(AleaeMARLeaNode(NodeEnum.FIELD, None, None))
@@ -538,7 +538,7 @@ class MARleaTokenizer(Tokenizer):
             elif re.fullmatch(r'[^+: ]+', token.strip()) is not None:
                 self.tokens.append((NodeEnum.CHEM, token.strip()))
             else:
-                self.investigate("Unrecognized symbol", "'"+token.strip()+"'")
+                self.investigate("Unrecognized symbol:", "'"+token.strip()+"'")
                 return False
         return True
 
@@ -642,7 +642,7 @@ class MARleaParser(Parser):
     def field(self, sub_root):
         token = self.tokenizer.peek_next_token()
         if token is None or token[0] == NodeEnum.MARLEA_ARROW:
-            self.investigate("Empty field:")
+            self.investigate("Empty field")
             return False
 
         null_token = self.expect(NodeEnum.MARLEA_NULL)
@@ -785,6 +785,7 @@ def read_aleae_in_file(aleae_in_filename, aether):
                 input_file_reader_to_output_writer_queue.put(temp_row[:2])
             temp = f_init.readline()
         else:
+            print("Conversion has been halted. Any output MARlea file is considered unsuitable to run.")
             input_file_reader_to_converter_auxilliary_queue.put(END_PROCEDURE)
             input_file_reader_to_output_writer_queue.put(END_PROCEDURE)
 
@@ -832,13 +833,16 @@ def aleae_to_marlea_converter(waste, aether):
     while temp != END_PROCEDURE:
         a_parser = AleaeParser(temp, all_chems)
         if not a_parser.tokenize():                                         # Tokenize the reaction
+            print("Conversion has been halted. Any output MARlea file is considered unsuitable to run.")
             break
 
         aleae_tree = a_parser.parse_line()                                  # Parse reaction
+        print("Conversion has been halted. Any output MARlea file is considered unsuitable to run.")
         if aleae_tree is None:
             break
 
         marlea_tree = AleaeParser.convert_tree_to_marlea(aleae_tree, waste, aether)     # Convert reaction
+        print("Conversion has been halted. Any output MARlea file is considered unsuitable to run.")
         if marlea_tree is None:
             break
 
@@ -895,6 +899,7 @@ def read_marlea_file(MARlea_input_filename):
                     input_file_reader_to_output_writer_queue.put(row[0].strip() + " " + row[1].strip() + ' N\n')
                     input_file_reader_to_converter_auxilliary_queue.put(row)
                 else:
+                    print("Conversion has been halted. Any output Aleae file is considered unsuitable to run.")
                     break
 
     input_file_reader_to_converter_auxilliary_queue.put(END_PROCEDURE)
@@ -919,14 +924,17 @@ def marlea_to_aleae_converter(waste, aether):
     while temp != END_PROCEDURE:
         m_parser = MARleaParser(temp[0])                                                # Tokenize the reaction
         if not m_parser.tokenize():
+            print("Conversion has been halted. Any output Aleae file is considered unsuitable to run.")
             break
 
         marlea_tree = m_parser.parse_line()                                             # Parse reaction
         if marlea_tree is None:
+            print("Conversion has been halted. Any output Aleae file is considered unsuitable to run.")
             break
 
         aleae_tree = MARleaParser.convert_tree_to_aleae(marlea_tree, temp[1], waste, aether)        # Convert reaction
         if aleae_tree is None:
+            print("Conversion has been halted. Any output Aleae file is considered unsuitable to run.")
             break
 
         converted_reaction = AleaeParser.construct_line(aleae_tree)
@@ -983,19 +991,6 @@ def write_aleae_r_file(aleae_r_filename):
         temp = converter_to_output_file_writer_queue_1.get()
 
     f_aleae_output_r.close()
-
-
-def run_error_checking(aleae_in_file, aleae_r_file, marlea_file):
-    print("Beginning file checking.")
-    if not os.path.isfile("error_checker.py"):
-        print("Error checker script not found. Is it named 'error_checker.py' "
-              + "and in the same directory as converter.py?")
-        return False
-    elif aleae_in_file is not None and aleae_r_file is not None:
-        return check_aleae_files(aleae_in_file, aleae_r_file)
-    elif marlea_file is not None:
-        return check_marlea_file(marlea_file)
-    exit(0)
 
 
 def start_a_to_m_conversion(aleae_in_filename, aleae_r_filename, marlea_filename, waste, aether, pipeline_enabled):
@@ -1056,7 +1051,6 @@ def scan_args():
     input_files = []
     pipeline_enabled = False
     output_files = []
-    # error_check_enable = False
 
     if sys.version_info.major < 3 and sys.version_info.minor < 8:
         print("Version of Python must be 3.8 or higher")
