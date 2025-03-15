@@ -45,7 +45,7 @@ To operate the script, commands are entered into the terminal in this format:
 * --output, -o: precedes output file name(s)
 
 ### Optional Flags
-* [--pipelined_enable], -p: enables pipelined execution
+* [--pipeline_enable], -p: enables pipelined execution
 * [--waste]: denotes from what chemical to convert to NULL and vice versa
 * [--aether]: denotes from what chemical(s) to convert to NULL and vice versa
 
