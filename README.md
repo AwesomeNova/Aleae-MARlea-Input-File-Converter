@@ -1,7 +1,7 @@
 ## Brief Description
 A Python script that converts Aleae text files to a MARlea csv file and vice versa. It serves as a complementary piece of software for anyone to convert input files to run a chemical reaction network on either Aleae or MARlea. 
 
-The program takes either an MARlea file or an Aleae .r reaction and .in init files as input, and it converts it to the desired format. All input files must be valid as specified by Aleae and MARlea, as Aleae or MARlea can accept it and run the chemical reaction without an error causing an exit. The script checks for whether an input file given to it is valid, specified by the documentation for Aleae and MARlea, if and only if the user enables it via a command-line flag. Otherwise, it DOES NOT check for syntax and assumes that given input files are valid. Giving the script invalid input files without allowing errors to be checked first may lead to unintended effects.
+The program takes either an MARlea file or an Aleae .r reaction and .in init files as input, and it converts it to the desired format. All input files must be valid as specified by Aleae and MARlea, as Aleae or MARlea can accept it and run the chemical reaction without an error causing an exit. During the conversion process, the script checks for whether an input file given to it is valid, specified by the documentation for Aleae and MARlea.
 
 ## Motivation
 The script was created to automate the laborious task of converting MARlea files into Aleae files by hand or assisted with the find-and-replace tool. Converting by hand was tedious and time-consuming, especially with files with several lines of reactions. This was created as a way to save time, effort, and sanity. 
