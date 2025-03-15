@@ -46,7 +46,6 @@ To operate the script, commands are entered into the terminal in this format:
 
 ### Optional Flags
 * [--pipelined_enable], -p: enables pipelined execution
-* [--error_check_enable], -e: enables pre-conversion error checking
 * [--waste]: denotes from what chemical to convert to NULL and vice versa
 * [--aether]: denotes from what chemical(s) to convert to NULL and vice versa
 
