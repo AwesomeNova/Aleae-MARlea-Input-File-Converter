@@ -836,13 +836,13 @@ def aleae_to_marlea_converter(waste, aether):
             break
 
         aleae_tree = a_parser.parse_line()                                  # Parse reaction
-        print("Conversion has been halted. Any output MARlea file is considered unsuitable to run.")
         if aleae_tree is None:
+            print("Conversion has been halted. Any output MARlea file is considered unsuitable to run.")
             break
 
         marlea_tree = AleaeParser.convert_tree_to_marlea(aleae_tree, waste, aether)     # Convert reaction
-        print("Conversion has been halted. Any output MARlea file is considered unsuitable to run.")
         if marlea_tree is None:
+            print("Conversion has been halted. Any output MARlea file is considered unsuitable to run.")
             break
 
         temp_list = temp.strip().split(ALEAE_FIELD_SEPARATOR)
