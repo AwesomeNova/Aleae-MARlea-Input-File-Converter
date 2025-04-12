@@ -317,6 +317,9 @@ class Tokenizer:
     def move_cursor_by_offset(self, offset):
         self.cursor += offset
 
+    def peek_token_at(self, pos):
+        return self.tokens[pos]
+
     def peek_next_token(self):
         if self.cursor < len(self.tokens):
             token = self.tokens[self.cursor]
@@ -469,19 +472,19 @@ class AleaeParser(Parser):
                 self.tokenizer.move_cursor_by_offset(1)
 
         if len(sep_pos) != 2:
-            self.investigate("Invalid use of field separators:", self.tokenizer.tokens[sep_pos[len(sep_pos)-1]][1])
+            self.investigate("Invalid use of field separators:", self.tokenizer.peek_token_at(sep_pos[len(sep_pos)-1])[1])
             return None
 
         if len(self.tokenizer.tokens) < sep_pos[1] + 2:
             self.investigate("Empty rate field")
             return None
-        elif self.tokenizer.get_cursor_pos() > sep_pos[1] + 2 or not self.tokenizer.tokens[sep_pos[1]+1][1].isnumeric():
-            self.investigate("Invalid rate field:", self.tokenizer.tokens[sep_pos[1]+1][1])
+        elif self.tokenizer.get_cursor_pos() > sep_pos[1] + 2 or not self.tokenizer.peek_token_at(sep_pos[1]+1)[1].isnumeric():
+            self.investigate("Invalid rate field:", self.tokenizer.peek_token_at(sep_pos[1]+1)[1])
             return None
 
         root.children.append(AleaeMARLeaNode(NodeEnum.FIELD, None, None))
         root.children.append(AleaeMARLeaNode(NodeEnum.FIELD, None, None))
-        root.children.append(AleaeMARLeaNode(NodeEnum.RATE, self.tokenizer.tokens[sep_pos[1]+1][1], None))
+        root.children.append(AleaeMARLeaNode(NodeEnum.RATE, self.tokenizer.peek_token_at(sep_pos[1]+1)[1], None))
         self.tokenizer.set_cursor_pos(0)
 
         if not self.field(root.children[0]): return None
@@ -624,7 +627,7 @@ class MARleaParser(Parser):
                 self.tokenizer.move_cursor_by_offset(1)
 
         if num_marlea_arrows != 1:
-            self.investigate("Invalid or missing use of MARlea arrow:", self.tokenizer.tokens[sep_pos][1])
+            self.investigate("Invalid or missing use of MARlea arrow:", self.tokenizer.peek_token_at(sep_pos)[1])
             return None
 
         root.children.append(AleaeMARLeaNode(NodeEnum.FIELD, None, None))
