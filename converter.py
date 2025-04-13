@@ -1060,7 +1060,7 @@ def scan_args():
 
     # All the commands and their associated flags
     main_parser = argparse.ArgumentParser(prog="converter.py", add_help=True)
-    subparsers = main_parser.add_subparsers(dest="command", required=True)
+    subparsers = main_parser.add_subparsers(dest="command", required=False)
 
     a_to_m_parser = subparsers.add_parser("a-to-m", usage="Convert Aleae files into MARlea files", help="Convert Aleae files to an MARlea equivalent")
     a_to_m_parser.add_argument("-i", "--input", action='store', nargs=2, required=True, help="Paths to the .in and .r Aleae files")
@@ -1082,7 +1082,7 @@ def scan_args():
     parsed_args = main_parser.parse_args(sys.argv[1:])  # Extract some of the arguments from the command-line input
     input_mode = parsed_args.command
 
-    if input_mode != "gui":
+    if input_mode is not None and input_mode != "gui":
         if parsed_args.waste is not None:
             waste_local = parsed_args.waste
 
@@ -1097,7 +1097,10 @@ def scan_args():
         output_files = parsed_args.output
         pipeline_enabled = parsed_args.pipeline_enable
 
-    if input_mode == "a-to-m":
+    if input_mode is None or input_mode == "gui":
+        gui_root.mainloop()
+        exit(0)
+    elif input_mode == "a-to-m":
         if ".in" in input_files[0] and ".r" in input_files[1]:
             aleae_in_filename = input_files[0]
             aleae_r_filename = input_files[1]
@@ -1133,9 +1136,6 @@ def scan_args():
 
         start_m_to_a_conversion(aleae_in_filename, aleae_r_filename, marlea_filename, waste_local, aether_local,
                          pipeline_enabled)
-    elif input_mode == "gui":
-        gui_root.mainloop()
-        exit(0)
     else:
         print("Error: Invalid command.")
         exit(-1)
