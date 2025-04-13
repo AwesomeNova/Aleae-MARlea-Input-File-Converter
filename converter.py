@@ -1,6 +1,6 @@
 """
 Name: AwesomeNova
-Updated at: 3/15/2025
+Updated at: 4/12/2025
 
 Script for converting Aleae files into MARlea ones and vice versa via sequential or pipelined execution. Please read the
 README to learn how to use it. The script checks for whether an input file given to it is valid, specified by the
