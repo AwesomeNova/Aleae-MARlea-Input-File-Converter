@@ -52,7 +52,7 @@ To operate the script, commands are entered into the terminal in this format:
 ### Example Commands
 ```python converter.py a-to-m -i init.in react.r -o MARlea_crn.csv --waste W --aether S.1 S.2 S.3```
 
-```python converter.py m_to_a -i MARlea_crn.csv -p -e -o init.in react.r --waste garbo --aether S.1```
+```python converter.py m_to_a -i MARlea_crn.csv -p -o init.in react.r --waste garbo --aether S.1```
 
 ```python converter.py gui```
 
